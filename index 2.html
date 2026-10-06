@@ -269,7 +269,7 @@ function render(){
 }
 function buyList(){
   if(!last) return []; const out=[];
-  for(const [k,v] of last.sorted.slice(0,40)){const o=parseFloat(odds[k]); if(o){const ev=v/last.N*o; if(ev>=cfg.margin) out.push({k,ev,o})}}
+  for(const k of Object.keys(odds)){const o=parseFloat(odds[k]), v=last.tri.get(k)||0; if(o&&v){const ev=v/last.N*o; if(ev>=cfg.margin) out.push({k,ev,o})}}
   return out.sort((a,b)=>b.ev-a.ev);
 }
 
@@ -561,19 +561,66 @@ function parseBoaters(words,W){
     return out;
   });
 }
+/* 直前情報スクショ（展示タイム） */
+function parseChokuzen(words,W){
+  const T=words.map(w=>({t:w.t.replace(/\s/g,""),x:w.x/W,y:w.y})).filter(w=>w.t);
+  const v=T.filter(w=>w.x>=.48&&w.x<.66&&/^[67]\.\d\d$/.test(w.t)).sort((a,b)=>a.y-b.y);
+  if(v.length<4) return null;
+  let rows;
+  if(v.length===6) rows=v;
+  else{ // 抜けがある場合は行の間隔から何枠目かを決める
+    const d=[];for(let i=1;i<v.length;i++)d.push(v[i].y-v[i-1].y);
+    const pitch=Math.min(...d); rows=new Array(6).fill(null);
+    v.forEach(w=>{const k=Math.round((w.y-v[0].y)/pitch); if(k<6) rows[k]=w});
+  }
+  return rows.slice(0,6).map((w,i)=>w?{waku:i+1,ten:parseFloat(w.t)}:{waku:i+1});
+}
+/* オッズ（人気順の3連単一覧）スクショ：枠の色で艇番を見分ける */
+const BOX_COLORS=[[241,241,241],[0,0,0],[192,64,58],[51,108,187],[247,234,90],[70,154,130]];
+function boatAt(px,W,H,x,y){
+  const votes=[0,0,0,0,0,0];
+  for(const dx of [-.024,-.02,.02,.024]) for(const dy of [-8,0,8]){
+    const X=Math.round(x+dx*W), Y=Math.round(y+dy); if(X<0||Y<0||X>=W||Y>=H) continue;
+    const i=(Y*W+X)*4, r=px[i],g=px[i+1],b=px[i+2];
+    let best=0,bd=1e9; BOX_COLORS.forEach((c,k)=>{const d=(r-c[0])**2+(g-c[1])**2+(b-c[2])**2; if(d<bd){bd=d;best=k}});
+    if(bd<9000) votes[best]++;
+  }
+  const m=Math.max(...votes); return m?votes.indexOf(m):-1;
+}
+function parseOdds(words,W,H,px){
+  const T=words.map(w=>({t:w.t.replace(/\s/g,""),x:w.x/W,y:w.y})).filter(w=>w.t);
+  const rows=T.filter(w=>w.x>.78&&/^\d{1,4}\.\d$/.test(w.t));
+  if(rows.length<4) return null;
+  const out={};
+  rows.forEach(w=>{
+    const b=[.315,.44,.564].map(cx=>boatAt(px,W,H,cx*W,w.y+6));
+    if(b.every(x=>x>=0)&&new Set(b).size===3) out[b.join("-")]=parseFloat(w.t);
+  });
+  return Object.keys(out).length>=3?out:null;
+}
 /* ---------- スクショから自動入力 ---------- */
 (async function(){
   const box=$("ocrBox"), btn=$("btnOcr"), file=$("ocrFile"), msg=$("ocrMsg");
-  msg.textContent="boatersの「出走表」タブのスクショを選ぶと、数字を読み取って自動で入力します（初回は準備に少し時間がかかります）。";
+  msg.textContent="boatersの「出走表」「直前情報」「オッズ（3連単の人気順）」のスクショを選ぶと、数字を読み取って自動で入力します（何枚かまとめて選べます。初回は準備に少し時間がかかります）。";
   file.onchange=async()=>{
     const files=[...file.files].slice(0,4); file.value=""; if(!files.length) return;
     box.classList.add("busy");
     try{
-      let res=null;
-      for(const f of files){ res=await readShot(f,p=>msg.textContent=p); if(res) break; }
-      const got=res?applyOcr({boats:res}):0;
-      msg.textContent=got?`${got}項目を読み取りました。オレンジ枠の数字が合っているか一度確認してください。`:
-        "表の数字を見つけられませんでした。boatersの「出走表」タブを、表全体が入るようにスクショしてお試しください。";
+      const merged=[1,2,3,4,5,6].map(w=>({waku:w})), kinds=[], newOdds={};
+      for(const f of files){
+        const words=await readShot(f,p=>msg.textContent=p);
+        let r=parseBoaters(words.list,words.W), kind="出走表";
+        if(!r){ r=parseChokuzen(words.list,words.W); kind="直前情報"; }
+        if(r){ kinds.push(kind); r.forEach(b=>Object.assign(merged[b.waku-1],b)); continue; }
+        const o=parseOdds(words.list,words.W,words.H,words.orig);
+        if(o){ kinds.push("オッズ"); Object.assign(newOdds,o); }
+      }
+      let got=0;
+      if(kinds.some(k=>k!=="オッズ")) got+=applyOcr({boats:merged});
+      const nOdds=Object.keys(newOdds).length;
+      if(nOdds){ Object.assign(odds,newOdds); store("kyotei-sim-odds",odds); render(); }
+      msg.textContent=(got||nOdds)?`${[...new Set(kinds)].join("・")}から読み取りました（${[got?got+"項目":"",nOdds?"オッズ"+nOdds+"通り":""].filter(Boolean).join("・")}）。数字が合っているか一度確認してください。`:
+        "表の数字を見つけられませんでした。boatersの「出走表」か「直前情報」タブを、表全体が入るようにスクショしてお試しください。";
     }catch(e){
       msg.textContent="読み取りの準備に失敗しました。通信状態の良いところでもう一度お試しください。";
     }finally{ box.classList.remove("busy"); }
@@ -593,7 +640,7 @@ async function readShot(fileObj,progress){
   const img=await createImageBitmap(fileObj);
   const c=document.createElement("canvas"); c.width=img.width; c.height=img.height;
   const g2=c.getContext("2d"); g2.drawImage(img,0,0);
-  const d=g2.getImageData(0,0,c.width,c.height), px=d.data;
+  const d=g2.getImageData(0,0,c.width,c.height), px=d.data, orig=new Uint8ClampedArray(px);
   let sum=0; for(let i=0;i<px.length;i+=4) sum+=px[i]*.3+px[i+1]*.59+px[i+2]*.11;
   const dark=sum/(px.length/4)<128;
   for(let i=0;i<px.length;i+=4){ let v=px[i]*.3+px[i+1]*.59+px[i+2]*.11; if(dark) v=255-v; const o=v>150?255:0; px[i]=px[i+1]=px[i+2]=o; }
@@ -602,7 +649,7 @@ async function readShot(fileObj,progress){
   progress("読み取り中…");
   const {data}=await w.recognize(c);
   const words=(data.words||[]).map(x=>({t:x.text,x:(x.bbox.x0+x.bbox.x1)/2,y:(x.bbox.y0+x.bbox.y1)/2}));
-  return parseBoaters(words,c.width);
+  return {list:words,W:c.width,H:c.height,orig};
 }
 function applyOcr(res){
   const boats=res&&Array.isArray(res.boats)?res.boats:[]; let n=0; const changed=[];
