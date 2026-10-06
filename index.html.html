@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="レースシミュ">
+<meta name="theme-color" content="#06121f">
+<title>競艇レースシミュレーター</title>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#06121f;--panel:#0d1f33;--line:#1f3a57;--text:#e9f2fb;--mute:#8aa3bd;--accent:#ffb020;--accent2:#29c3ff;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){--bg:#eef4fa;--panel:#ffffff;--line:#d3e0ec;--text:#0d1f33;--mute:#5a7088;--accent:#e08a00;--accent2:#0a8fd1}
+}
+:root[data-theme="dark"]{--bg:#06121f;--panel:#0d1f33;--line:#1f3a57;--text:#e9f2fb;--mute:#8aa3bd;--accent:#ffb020;--accent2:#29c3ff}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Zen Kaku Gothic New","Hiragino Sans",sans-serif;-webkit-tap-highlight-color:transparent}
+.wrap{max-width:980px;margin:0 auto;padding:12px max(12px,env(safe-area-inset-left,0px)) 28px max(12px,env(safe-area-inset-right,0px))}
+h1{font-family:"Dela Gothic One",sans-serif;font-size:20px;margin:4px 0 10px;letter-spacing:.06em}
+h1 span{color:var(--accent)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:12px}
+.stage{position:relative;border-radius:12px;overflow:hidden;background:#071a2c}
+canvas#race{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#0a2a45}
+.hud-top{position:absolute;left:8px;right:8px;top:8px;display:flex;justify-content:space-between;align-items:center;pointer-events:none}
+#phase{background:#000a;color:#fff;font-weight:700;font-size:12px;padding:4px 9px;border-radius:6px;border-left:3px solid var(--accent)}
+.live{display:flex;gap:3px;background:#000a;padding:4px;border-radius:8px}
+.live .chip{width:22px;height:22px;font-size:12px}
+.sound{position:absolute;right:8px;bottom:40px;flex:none;min-width:0;width:32px;height:32px;font-size:15px!important;padding:0;border-radius:50%;background:#000a;border:1px solid #fff3;font-size:17px}
+@media (orientation:landscape) and (max-height:520px){
+  h1{display:none} .wrap{padding-top:8px}
+  .stage{height:calc(100dvh - 96px)} canvas#race{aspect-ratio:auto;height:100%}
+  .result-line{position:absolute;left:20px;right:20px;margin-top:-34px;z-index:2;min-height:0;font-size:13px}
+  .btns{margin-top:8px} button{padding:9px 14px}
+}
+
+.banner{position:absolute;left:50%;top:30%;transform:translateX(-50%);font-family:"Dela Gothic One",sans-serif;
+  font-size:clamp(20px,5vw,40px);color:#fff;text-shadow:0 2px 0 #000,0 0 18px #ffb020;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+.banner.show{opacity:1}
+.btns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+button{font-family:inherit;font-weight:700;font-size:15px;border-radius:12px;border:1px solid var(--line);
+  background:var(--panel);color:var(--text);padding:12px 16px;cursor:pointer;touch-action:manipulation;flex:1;min-width:140px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#1a1000}
+button.secondary{background:var(--accent2);border-color:var(--accent2);color:#00131f}
+button:active{transform:scale(.98)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:460px;font-size:14px}
+th,td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--line)}
+th{font-size:12px;color:var(--mute);font-weight:500}
+td input,td select{width:100%;max-width:70px;font:inherit;font-size:15px;padding:7px 6px;border-radius:8px;border:1px solid var(--line);
+  background:var(--bg);color:var(--text);text-align:center}
+.chip{display:inline-flex;width:28px;height:28px;border-radius:7px;align-items:center;justify-content:center;font-weight:700;font-family:"Dela Gothic One",sans-serif;border:1px solid #0004}
+.note{font-size:12px;color:var(--mute);line-height:1.6;margin:8px 2px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:640px){.grid{grid-template-columns:1fr}}
+h2{font-size:15px;margin:0 0 8px;color:var(--mute);font-weight:700}
+.bar{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:14px}
+.bar .track{flex:1;height:14px;background:var(--bg);border-radius:7px;overflow:hidden;border:1px solid var(--line)}
+.bar .fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:7px}
+.bar .v{width:52px;text-align:right;font-variant-numeric:tabular-nums}
+ol.combos{list-style:none;margin:0;padding:0;font-size:14px}
+ol.combos li{display:flex;justify-content:space-between;align-items:center;padding:6px 2px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.combo{display:flex;gap:3px;align-items:center}
+.combo .chip{width:24px;height:24px;font-size:13px}
+.combo i{font-style:normal;color:var(--mute);font-size:11px}
+.odds{color:var(--mute);font-size:12px;margin-left:8px}
+.kima{display:flex;flex-wrap:wrap;gap:6px}
+.kima span{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-size:13px}
+.empty{color:var(--mute);font-size:13px}
+.result-line{font-size:14px;margin-top:8px;min-height:20px}
+.sum-main{display:flex;align-items:center;gap:10px;font-size:16px;margin-bottom:6px;flex-wrap:wrap}
+.sum-main b,.sum-sub b{font-size:1.15em}
+.badge{color:#fff;font-weight:700;border-radius:8px;padding:4px 10px;font-size:14px}
+.sum-sub{font-size:13px;color:var(--mute);display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.bar .v2{width:62px;font-size:12px;color:var(--mute);text-align:right}
+ol.combos li{display:grid;grid-template-columns:auto 1fr 76px 88px;gap:8px;align-items:center}
+ol.combos li.good{background:linear-gradient(90deg,#ffb02026,transparent);border-radius:8px}
+.pr{text-align:right;font-variant-numeric:tabular-nums}.pr small{display:block;color:var(--mute);font-size:11px}
+.oddsIn{width:100%;font:inherit;font-size:15px;padding:6px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);text-align:center}
+.ev{font-size:12px;color:var(--mute);text-align:right}.good .ev b{color:var(--accent);font-size:15px}
+.buys{display:flex;flex-wrap:wrap;gap:6px}.buy{display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--accent);border-radius:10px;padding:5px 8px;font-size:13px}
+table.why{min-width:460px}table.why td small{display:block;font-size:10px;color:var(--mute)}
+td.pos{color:#2e9e4f;font-weight:700}td.neg{color:#e53935;font-weight:700}td.tot{font-weight:700}
+.res{display:flex;gap:10px;flex-wrap:wrap}.res label,.cfg label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute)}
+.res select,.cfg input{font:inherit;font-size:16px;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);width:80px;text-align:center}
+.cfg{display:flex;flex-wrap:wrap;gap:10px}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:12px}
+.stat{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.stat span{display:block;font-size:11px;color:var(--mute)}.stat b{font-size:20px;font-variant-numeric:tabular-nums}.stat small{display:block;font-size:11px;color:var(--mute)}
+.stat.ok{border-color:#2e9e4f}.stat.warn{border-color:#e08a00}
+ol.loglist{list-style:none;padding:0;margin:10px 0 0;font-size:13px}
+ol.loglist li{display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid var(--line)}
+ol.loglist .pr{flex:1}.hit{color:#2e9e4f}
+details.card summary{font-weight:700;cursor:pointer;color:var(--mute)}
+.ocr{margin-bottom:10px;position:relative}
+.ocrBtn{display:block;text-align:center;font-weight:700;font-size:15px;border-radius:12px;padding:13px 16px;background:var(--accent);color:#1a1000;cursor:pointer;touch-action:manipulation}
+.ocrBtn.off{opacity:.45;pointer-events:none}.ocr.busy .ocrBtn{opacity:.6;pointer-events:none}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0)}
+.ocr .note{margin-top:6px}
+td input.filled,td select.filled{border-color:var(--accent);background:#ffb0201f}
+.fbadge{display:block;color:#e53935;font-weight:700;font-size:11px}
+.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#000d;color:#fff;
+  padding:10px 14px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90vw}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>競艇 <span>レースシミュレーター</span></h1>
+
+  <div class="card">
+    <div class="stage">
+      <canvas id="race" aria-label="レースのアニメーション"></canvas>
+      <div class="hud-top"><span id="phase">スタート前</span><span class="live" id="live"></span></div>
+      <button class="sound" id="btnSound" aria-label="音のオン・オフ">🔊</button>
+      <div class="banner" id="banner"></div>
+    </div>
+    <div class="result-line" id="resultLine"></div>
+    <div class="btns">
+      <button class="primary" id="btnFav">★ 最有力の展開を見る</button>
+      <button class="secondary" id="btnRace">▶ ランダムに1レース</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>出走データ</h2>
+    <div class="ocr" id="ocrBox">
+      <label class="ocrBtn" id="btnOcr" for="ocrFile">📷 スクショから自動入力</label>
+      <input type="file" id="ocrFile" multiple accept="image/*" class="vh">
+      <p class="note" id="ocrMsg"></p>
+    </div>
+    <div class="tablewrap"><table class="inputs">
+      <thead><tr><th>枠</th><th>進入</th><th>全国勝率</th><th>平均ST</th><th>モーター<br>2連率%</th><th>展示<br>タイム</th></tr></thead>
+      <tbody id="rows"></tbody></table></div>
+    <p class="note">入力すると自動で3万回シミュレーションし直します。</p>
+  </div>
+
+  <div class="card"><h2>予想</h2><div id="summary"></div><div id="winBars"></div></div>
+
+  <div class="card">
+    <h2>3連単と期待値</h2>
+    <p class="note" style="margin-top:0">「適正」は確率どおりなら釣り合う倍率です。実際のオッズを入れると期待値（確率×オッズ）を出し、基準を超えたものを買い目候補にします。</p>
+    <ol class="combos" id="combos"></ol>
+    <h2 style="margin-top:12px">買い目候補</h2><div class="buys" id="buys"></div>
+  </div>
+
+  <div class="card">
+    <h2>予想の根拠（各要素の点数）</h2>
+    <div class="tablewrap" id="why"></div>
+    <p class="note">コースは最も有利なコースとの差、他は6艇の平均との差を点数にしています。合計が高いほど1着になりやすく、そこにスタートのブレや展開の運を加えて何万回もレースを回しています。</p>
+  </div>
+
+  <div class="card">
+    <h2>検証記録</h2>
+    <p class="note" style="margin-top:0">レース後に実際の着順を記録すると、このシミュレーターの予想が本当に当たっているかを数字で確かめられます。</p>
+    <div class="res" id="res"></div>
+    <div class="btns"><button class="primary" id="btnRecord">この着順で記録</button></div>
+    <div class="stats" id="stats"></div>
+    <ol class="loglist" id="loglist"></ol>
+    <div class="btns"><button id="btnExport">記録をコピー</button><button id="btnClear">記録を消す</button></div>
+    <p class="note">「本命艇の1着」の実際の割合と予想していた確率が近いほど、確率の出し方が信頼できます。判断は最低でも100レースほど記録してからにしてください。</p>
+  </div>
+
+  <details class="card">
+    <summary>場の傾向・効き具合の設定</summary>
+    <h2 style="margin-top:12px">コース別1着率（%）</h2>
+    <p class="note" style="margin-top:0">初期値は全国平均の目安です。走る場の数字に合わせると、その場らしい結果になります。</p>
+    <div class="cfg" id="venue"></div>
+    <h2 style="margin-top:12px">要素の効き具合</h2>
+    <div class="cfg" id="weights"></div>
+    <div class="btns"><button id="btnCfgReset">初期値に戻す</button></div>
+  </details>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+/* ---------- 基本データ ---------- */
+const COLORS=[["#f4f4f4","#111"],["#1b1b1b","#fff"],["#e53935","#fff"],["#1e63d6","#fff"],["#f6c700","#111"],["#2e9e4f","#fff"]];
+const DEF_BOATS=[
+  {c:1,win:6.80,st:.15,mot:38,ten:6.78},{c:2,win:5.20,st:.16,mot:33,ten:6.82},{c:3,win:6.10,st:.14,mot:41,ten:6.75},
+  {c:4,win:7.20,st:.12,mot:45,ten:6.72},{c:5,win:4.80,st:.17,mot:30,ten:6.85},{c:6,win:5.50,st:.16,mot:35,ten:6.80}];
+const DEF_CFG={venue:[55,14,12,11,6,2],w:{win:.45,mot:.015,ten:3.5,st:8},margin:1.2};
+const $=id=>document.getElementById(id);
+function load(k,d){try{const s=localStorage.getItem(k);if(s)return JSON.parse(s)}catch(e){}return JSON.parse(JSON.stringify(d))}
+function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+let data=load("kyotei-sim-v1",DEF_BOATS), cfg=load("kyotei-sim-cfg",DEF_CFG), odds=load("kyotei-sim-odds",{}), log=load("kyotei-sim-log",[]);
+if(!Array.isArray(data)||data.length!==6) data=JSON.parse(JSON.stringify(DEF_BOATS));
+cfg=Object.assign(JSON.parse(JSON.stringify(DEF_CFG)),cfg); cfg.w=Object.assign({},DEF_CFG.w,cfg.w);
+function chip(i){const [bg,fg]=COLORS[i];return `<span class="chip" style="background:${bg};color:${fg}">${i+1}</span>`}
+function combo(k){return `<span class="combo">${k.split("-").map(Number).map((x,j)=>chip(x)+(j<2?"<i>-</i>":"")).join("")}</span>`}
+function courses(){const cs=data.map(b=>b.c);return new Set(cs).size===6?cs:[1,2,3,4,5,6]}
+
+/* ---------- モデル ---------- */
+function prior(){const s=cfg.venue.reduce((a,b)=>a+Math.max(.1,b),0);return cfg.venue.map(v=>Math.log(Math.max(.1,v)/s))}
+function gumbel(){return -Math.log(-Math.log(Math.random()+1e-12)+1e-12)}
+function normal(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+function parts(cs,st){ // 各艇の点数の内訳
+  const PR=prior(), m=k=>data.reduce((s,b)=>s+b[k],0)/6, mw=m("win"), mm=m("mot"), mt=m("ten"), W=cfg.w;
+  return data.map((b,i)=>{
+    const inner=[];for(let j=0;j<6;j++) if(cs[j]<cs[i]) inner.push(st[j]);
+    const oth=st.filter((_,j)=>j!==i);
+    const adv=inner.length?inner.reduce((a,x)=>a+x,0)/inner.length-st[i]:(oth.reduce((a,x)=>a+x,0)/oth.length-st[i])*.5;
+    return {course:PR[cs[i]-1],win:W.win*(b.win-mw),mot:W.mot*(b.mot-mm),ten:W.ten*(mt-b.ten),st:W.st*adv,adv};
+  });
+}
+function simOne(cs){
+  const st=data.map(b=>Math.max(.01,b.st+normal()*.035)), P=parts(cs,st);
+  const score=P.map(p=>p.course+p.win+p.mot+p.ten+p.st+gumbel());
+  const order=[0,1,2,3,4,5].sort((a,b)=>score[b]-score[a]);
+  const w=order[0], c=cs[w], a=P[w].adv; let kima;
+  if(c===1) kima="逃げ"; else if(c===2) kima=a>.05?"まくり":"差し";
+  else if(c<=4) kima=a>.04?"まくり":"まくり差し"; else kima=a>.06?"まくり":(Math.random()<.5?"まくり差し":"差し");
+  return {order,st,kima,cs};
+}
+
+/* ---------- 計算 ---------- */
+let last=null;
+function calc(){
+  const cs=courses(), N=30000, win=[0,0,0,0,0,0], top2=[0,0,0,0,0,0], tri=new Map(), km={}, kmBoat={};
+  for(let k=0;k<N;k++){
+    const r=simOne(cs); win[r.order[0]]++; top2[r.order[0]]++; top2[r.order[1]]++;
+    const key=r.order.slice(0,3).join("-"); tri.set(key,(tri.get(key)||0)+1);
+    km[r.kima]=(km[r.kima]||0)+1; const kb=r.order[0]+"-"+r.kima; kmBoat[kb]=(kmBoat[kb]||0)+1;
+  }
+  last={N,win,top2,tri,km,kmBoat,cs,sorted:[...tri.entries()].sort((a,b)=>b[1]-a[1])};
+  render();
+}
+let calcT; function recalc(){clearTimeout(calcT);calcT=setTimeout(calc,250)}
+
+/* ---------- 表示 ---------- */
+function render(){
+  if(!last) return; const L=last, N=L.N;
+  // 荒れ度
+  const p=L.win.map(v=>v/N), ent=-p.reduce((s,x)=>s+(x>0?x*Math.log(x):0),0)/Math.log(6);
+  const fav=p.indexOf(Math.max(...p)), pv=p[fav]*100;
+  const lvl=pv>=60?["堅い","#2e9e4f"]:pv>=40?["本命有力","#1e63d6"]:pv>=28?["混戦","#e08a00"]:["荒れ模様","#e53935"];
+  $("summary").innerHTML=`<div class="sum-main"><span class="badge" style="background:${lvl[1]}">${lvl[0]}</span>
+    <span>本命 ${chip(fav)} 1着率 <b>${pv.toFixed(1)}%</b></span></div>
+    <div class="sum-sub">最有力の3連単 ${combo(L.sorted[0][0])} <b>${(L.sorted[0][1]/N*100).toFixed(1)}%</b>
+    ／ 上位10通りで全体の <b>${(L.sorted.slice(0,10).reduce((s,x)=>s+x[1],0)/N*100).toFixed(0)}%</b> をカバー</div>`;
+  const mx=Math.max(...L.win);
+  $("winBars").innerHTML=L.win.map((v,i)=>`<div class="bar">${chip(i)}<div class="track"><div class="fill" style="width:${v/mx*100}%"></div></div><span class="v">${(v/N*100).toFixed(1)}%</span><span class="v2">連対${(L.top2[i]/N*100).toFixed(0)}%</span></div>`).join("");
+  // 3連単＋期待値
+  const top=L.sorted.slice(0,12);
+  $("combos").innerHTML=top.map(([k,v])=>{const pr=v/N, o=parseFloat(odds[k]), ev=o?pr*o:null, good=ev&&ev>=cfg.margin;
+    return `<li class="${good?"good":""}">${combo(k)}<span class="pr">${(pr*100).toFixed(1)}%<small>適正 ${(1/pr).toFixed(1)}倍</small></span>
+      <input class="oddsIn" data-k="${k}" inputmode="decimal" placeholder="オッズ" value="${odds[k]||""}">
+      <span class="ev">${ev?`期待値 <b>${ev.toFixed(2)}</b>`:"—"}</span></li>`}).join("");
+  $("combos").querySelectorAll(".oddsIn").forEach(el=>el.addEventListener("change",()=>{
+    const v=parseFloat(el.value); if(Number.isFinite(v)&&v>1) odds[el.dataset.k]=v; else delete odds[el.dataset.k];
+    store("kyotei-sim-odds",odds); render();}));
+  const buys=buyList();
+  $("buys").innerHTML=buys.length?buys.map(b=>`<span class="buy">${combo(b.k)} 期待値${b.ev.toFixed(2)}</span>`).join(""):
+    `<span class="empty">実際のオッズを入れると、期待値が基準（${cfg.margin.toFixed(2)}）以上の買い目がここに出ます</span>`;
+  // 根拠
+  const cs=L.cs, P=parts(cs,data.map(b=>b.st)), keys=[["course","コース"],["win","勝率"],["mot","モーター"],["ten","展示"],["st","スタート"]];
+  const base=Math.max(...P.map(p=>p.course));
+  $("why").innerHTML=`<table class="why"><thead><tr><th></th>${keys.map(k=>`<th>${k[1]}</th>`).join("")}<th>合計</th></tr></thead><tbody>`+
+    P.map((q,i)=>{const vals=keys.map(([k])=>k==="course"?q.course-base:q[k]);const tot=vals.reduce((a,b)=>a+b,0);
+      return `<tr><td>${chip(i)}<small>${cs[i]}コース</small></td>${vals.map(v=>`<td class="${v>.05?"pos":v<-.05?"neg":""}">${v>0?"+":""}${v.toFixed(2)}</td>`).join("")}<td class="tot">${tot>0?"+":""}${tot.toFixed(2)}</td></tr>`}).join("")+`</tbody></table>`;
+  renderLog();
+}
+function buyList(){
+  if(!last) return []; const out=[];
+  for(const [k,v] of last.sorted.slice(0,40)){const o=parseFloat(odds[k]); if(o){const ev=v/last.N*o; if(ev>=cfg.margin) out.push({k,ev,o})}}
+  return out.sort((a,b)=>b.ev-a.ev);
+}
+
+/* ---------- 入力欄 ---------- */
+function buildRows(){
+  $("rows").innerHTML=data.map((b,i)=>`<tr><td>${chip(i)}${b.f?`<small class="fbadge">F${b.f}</small>`:""}</td>
+    <td><select data-i="${i}" data-k="c">${[1,2,3,4,5,6].map(v=>`<option ${v==b.c?"selected":""}>${v}</option>`).join("")}</select></td>
+    ${["win","st","mot","ten"].map(k=>`<td><input data-i="${i}" data-k="${k}" inputmode="decimal" value="${b[k]}"></td>`).join("")}</tr>`).join("");
+  $("rows").querySelectorAll("input,select").forEach(el=>el.addEventListener("change",()=>{
+    const v=parseFloat(el.value); if(Number.isFinite(v)){data[+el.dataset.i][el.dataset.k]=v;store("kyotei-sim-v1",data);
+      if(el.dataset.k==="c"&&new Set(data.map(b=>b.c)).size<6) note("進入が重複しています。重複中は枠なりで計算します");
+      recalc();}}));
+}
+function buildCfg(){
+  $("venue").innerHTML=cfg.venue.map((v,i)=>`<label>${i+1}コース<input data-v="${i}" inputmode="decimal" value="${v}"></label>`).join("");
+  const W=[["win","勝率 1.0差"],["mot","モーター 1%差"],["ten","展示 1.00秒差"],["st","ST 1.00秒差"]];
+  $("weights").innerHTML=W.map(([k,l])=>`<label>${l}<input data-w="${k}" inputmode="decimal" value="${cfg.w[k]}"></label>`).join("")+
+    `<label>買いの基準（期待値）<input data-m="1" inputmode="decimal" value="${cfg.margin}"></label>`;
+  document.querySelectorAll("#venue input,#weights input").forEach(el=>el.addEventListener("change",()=>{
+    const v=parseFloat(el.value); if(!Number.isFinite(v)) return;
+    if(el.dataset.v) cfg.venue[+el.dataset.v]=v; else if(el.dataset.w) cfg.w[el.dataset.w]=v; else cfg.margin=v;
+    store("kyotei-sim-cfg",cfg); recalc();}));
+  $("btnCfgReset").onclick=()=>{cfg=JSON.parse(JSON.stringify(DEF_CFG));store("kyotei-sim-cfg",cfg);buildCfg();recalc()};
+}
+function note(t){const n=$("toast");n.textContent=t;n.classList.add("show");clearTimeout(note.t);note.t=setTimeout(()=>n.classList.remove("show"),2200)}
+
+/* ---------- 検証記録 ---------- */
+function buildResultPickers(){
+  $("res").innerHTML=["1着","2着","3着"].map((l,j)=>`<label>${l}<select id="res${j}">${[1,2,3,4,5,6].map(v=>`<option>${v}</option>`).join("")}</select></label>`).join("");
+  [0,1,2].forEach(j=>$("res"+j).value=String(j+1));
+}
+function record(){
+  if(!last) return;
+  const a=[0,1,2].map(j=>+$("res"+j).value-1);
+  if(new Set(a).size<3){note("1〜3着が重複しています");return}
+  const key=a.join("-"), N=last.N, buys=buyList();
+  const pWin=last.win.map(v=>v/N), fav=pWin.indexOf(Math.max(...pWin));
+  const hitBuy=buys.find(b=>b.k===key);
+  log.push({t:Date.now(),key,favTri:last.sorted[0][0],pFavTri:last.sorted[0][1]/N,pActual:(last.tri.get(key)||0)/N,
+    fav,pFav:pWin[fav],winner:a[0],cost:buys.length*100,pay:hitBuy?Math.round(hitBuy.o*100):0,nBuy:buys.length});
+  store("kyotei-sim-log",log); renderLog(); note("記録しました");
+  odds={}; store("kyotei-sim-odds",odds); render();
+}
+function renderLog(){
+  const n=log.length;
+  if(!n){$("stats").innerHTML=`<p class="empty">まだ記録がありません。レース後に実際の着順を入れて「記録」を押すと、予想がどれだけ当たっているかを集計します。</p>`;$("loglist").innerHTML="";return}
+  const fHit=log.filter(r=>r.fav===r.winner).length, fP=log.reduce((s,r)=>s+r.pFav,0)/n;
+  const tHit=log.filter(r=>r.key===r.favTri).length, tP=log.reduce((s,r)=>s+r.pFavTri,0)/n;
+  const cost=log.reduce((s,r)=>s+r.cost,0), pay=log.reduce((s,r)=>s+r.pay,0), bets=log.filter(r=>r.nBuy).length;
+  const ll=-log.reduce((s,r)=>s+Math.log(Math.max(r.pActual,1/120/50)),0)/n, llBase=Math.log(120);
+  const gap=(a,b)=>Math.abs(a-b)<.05?"ok":"warn";
+  $("stats").innerHTML=`
+   <div class="stat"><span>記録したレース</span><b>${n}</b></div>
+   <div class="stat ${gap(fHit/n,fP)}"><span>本命艇の1着</span><b>${(fHit/n*100).toFixed(1)}%</b><small>予想していた確率 ${(fP*100).toFixed(1)}%</small></div>
+   <div class="stat"><span>最有力3連単の的中</span><b>${tHit}/${n}</b><small>予想していた確率 平均${(tP*100).toFixed(1)}%</small></div>
+   <div class="stat"><span>予想の精度（低いほど良い）</span><b>${ll.toFixed(2)}</b><small>当てずっぽうなら ${llBase.toFixed(2)}</small></div>
+   <div class="stat"><span>期待値買いの回収率</span><b>${cost?(pay/cost*100).toFixed(0)+"%":"—"}</b><small>${bets}レース／投資${cost.toLocaleString()}円・払戻${pay.toLocaleString()}円</small></div>`;
+  $("loglist").innerHTML=log.slice(-8).reverse().map((r,k)=>{const d=new Date(r.t);
+    return `<li><span>${d.getMonth()+1}/${d.getDate()}</span>${combo(r.key)}<span class="pr">予想確率 ${(r.pActual*100).toFixed(1)}%</span>
+      <span>${r.nBuy?(r.pay?`<b class="hit">的中 +${r.pay}</b>`:`-${r.cost}`):"見送り"}</span></li>`}).join("");
+}
+function exportLog(){
+  const rows=[["日時","結果","最有力3連単","その確率","結果の予想確率","本命艇","本命の1着率","投資","払戻"]].concat(
+    log.map(r=>[new Date(r.t).toLocaleString(),r.key.split("-").map(x=>+x+1).join("-"),r.favTri.split("-").map(x=>+x+1).join("-"),r.pFavTri.toFixed(4),r.pActual.toFixed(4),r.fav+1,r.pFav.toFixed(4),r.cost,r.pay]));
+  const txt=rows.map(r=>r.join(",")).join("\n");
+  if(navigator.clipboard) navigator.clipboard.writeText(txt).then(()=>note("記録をコピーしました（表計算に貼り付けできます）"),()=>note("コピーできませんでした"));
+}
+
+/* ---------- 起動 ---------- */
+buildRows(); buildCfg(); buildResultPickers();
+$("btnRecord").onclick=record;
+$("btnExport").onclick=exportLog;
+$("btnClear").onclick=()=>{if(confirm("検証記録をすべて消しますか？")){log=[];store("kyotei-sim-log",log);renderLog()}};
+$("btnRace").onclick=()=>{anim=null;startRace()};
+$("btnFav").onclick=()=>{anim=null;startRace(last&&last.sorted[0][0])};
+calc();
+</script>
+<script>
+/* ---------- アニメーション（中継風） ---------- */
+const cv=$("race"), g=cv.getContext("2d");
+const WW=1000, MY=210, SX=480, M1X=820, M2X=180, R0=26, GAP=18, V=150, KST=4, T0=2.2;
+const AE=Math.PI*60, L1=M1X-SX, BK=M1X-M2X, L2=SX-M2X, LAP=L1+AE+BK+AE+L2;
+let anim=null, cam={x:SX,z:1}, dpr=1, cssW=0, cssH=0;
+const ss=x=>x<=0?0:x>=1?1:x*x*(3-2*x);
+function resize(){
+  dpr=Math.min(devicePixelRatio||1,2);
+  const r=cv.getBoundingClientRect(); cssW=r.width; cssH=r.height;
+  cv.width=Math.round(cssW*dpr); cv.height=Math.round(cssH*dpr);
+  if(!anim) idle();
+}
+function pos(e,r){
+  if(e<L1) return [SX+e,MY+r];
+  e-=L1; if(e<AE){const th=Math.PI/2-e/AE*Math.PI;return [M1X+r*Math.cos(th),MY+r*Math.sin(th)]}
+  e-=AE; if(e<BK) return [M1X-e,MY-r];
+  e-=BK; if(e<AE){const th=-Math.PI/2-e/AE*Math.PI;return [M2X+r*Math.cos(th),MY+r*Math.sin(th)]}
+  e-=AE; return [M2X+e,MY+r];
+}
+function phase(e){return e<-5?"スタート前":e<L1-40?"スタート":e<L1+AE?"1周1マーク":e<L1+AE+BK-60?"バックストレッチ":e<L1+AE*2+BK?"2マーク":e<LAP?"ホームストレッチ":"ゴール"}
+
+/* 水面テクスチャ */
+const water=document.createElement("canvas"); water.width=water.height=256;
+(function(){const w=water.getContext("2d");
+  const gr=w.createLinearGradient(0,0,256,256);gr.addColorStop(0,"#0c3352");gr.addColorStop(1,"#0a2a45");w.fillStyle=gr;w.fillRect(0,0,256,256);
+  for(let i=0;i<260;i++){const x=Math.random()*256,y=Math.random()*256,l=8+Math.random()*26,a=Math.random()*.10+.03;
+    w.strokeStyle=`rgba(170,215,255,${a})`;w.lineWidth=Math.random()*1.4+.4;w.beginPath();
+    w.moveTo(x,y);w.quadraticCurveTo(x+l/2,y-2-Math.random()*3,x+l,y);w.stroke();
+    if(x+l>256){w.beginPath();w.moveTo(x-256,y);w.quadraticCurveTo(x-256+l/2,y-3,x-256+l,y);w.stroke()}}
+})();
+let waterPat=null;
+const foam=document.createElement("canvas"); foam.width=foam.height=32;
+(function(){const f=foam.getContext("2d"),gr=f.createRadialGradient(16,16,0,16,16,16);
+  gr.addColorStop(0,"rgba(255,255,255,.95)");gr.addColorStop(.5,"rgba(225,240,255,.45)");gr.addColorStop(1,"rgba(255,255,255,0)");f.fillStyle=gr;f.fillRect(0,0,32,32)})();
+
+/* 効果音（エンジン音） */
+let audio=null, soundOn=true;
+try{soundOn=localStorage.getItem("kyotei-sim-sound")!=="off"}catch(e){}
+function setSoundLabel(){$("btnSound").textContent=soundOn?"🔊":"🔇"}
+function audioStart(){
+  if(!soundOn) return;
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    const ac=new AC(), master=ac.createGain(); master.gain.value=0; master.connect(ac.destination);
+    const lp=ac.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=700; lp.connect(master);
+    const osc=[0,1,2,3,4,5].map(i=>{const o=ac.createOscillator(),gn=ac.createGain();o.type="sawtooth";o.frequency.value=70+i*3;gn.gain.value=.05;o.connect(gn);gn.connect(lp);o.start();return o});
+    const buf=ac.createBuffer(1,ac.sampleRate,ac.sampleRate),d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+    const ns=ac.createBufferSource();ns.buffer=buf;ns.loop=true;const bp=ac.createBiquadFilter();bp.type="bandpass";bp.frequency.value=1200;bp.Q.value=.6;
+    const ng=ac.createGain();ng.gain.value=.05;ns.connect(bp);bp.connect(ng);ng.connect(master);ns.start();
+    master.gain.linearRampToValueAtTime(.5,ac.currentTime+1.2);
+    audio={ac,master,osc};
+  }catch(e){audio=null}
+}
+function audioSpeed(v){ if(!audio) return; const t=audio.ac.currentTime;
+  audio.osc.forEach((o,i)=>o.frequency.setTargetAtTime(70+i*3+v*0.9,t,.15)); }
+function audioStop(){ if(!audio) return; const a=audio; audio=null;
+  try{a.master.gain.setTargetAtTime(0,a.ac.currentTime,.4);setTimeout(()=>a.ac.close(),1500)}catch(e){} }
+
+function say(){}
+function flash(t,ms=1600){const b=$("banner");b.textContent=t;b.classList.add("show");clearTimeout(flash.t);flash.t=setTimeout(()=>b.classList.remove("show"),ms)}
+
+function startRace(target){
+  audioStop();
+  const cs=courses(); let r=simOne(cs);
+  if(target){for(let k=0;k<4000&&r.order.slice(0,3).join("-")!==target;k++) r=simOne(cs);}
+  const rank=[];r.order.forEach((b,k)=>rank[b]=k);
+  const tS=r.st.map(s=>T0+s*KST), tMark=Math.min(...tS)+L1/V;
+  anim={r,cs,rank,tS,tMark,w:r.order[0],first:cs.indexOf(1),tau:0,last:performance.now(),
+    parts:[],said:{},fin:[],jitter:[0,1,2,3,4,5].map(()=>Math.random()*6.28)};
+  $("resultLine").textContent=""; say("各艇、スタート態勢に入りました。");
+  audioStart(); requestAnimationFrame(frame);
+}
+function natural(i,t){
+  const A=anim,c=A.cs[i]; let r=R0+GAP*(c-1),b=0;
+  const pre=ss((t-(A.tMark-.9))/.9), turn=ss((t-(A.tMark-.2))/.8), k=A.r.kima;
+  if(i===A.w){
+    if(k==="まくり"){r+=(R0-4-r)*pre;b=40*pre}
+    else if(k==="差し"){r+=(R0-r)*turn;b=30*turn}
+    else if(k==="まくり差し"){r+=(R0+GAP*.6-r)*turn;b=35*turn}
+    else b=12*turn;
+  }else{
+    if(k==="まくり"&&c<A.cs[A.w]) r+=14*pre;
+    if(k!=="逃げ"&&i===A.first) r+=24*turn;
+  }
+  return {e:V*(t-A.tS[i])+b,r};
+}
+function frame(now){
+  const A=anim; if(!A) return;
+  const real=Math.min(.05,(now-A.last)/1000); A.last=now;
+  // 状態を計算（スリットと1マークはスロー）
+  const probe=[0,1,2,3,4,5].map(i=>natural(i,A.tau).e), lead0=Math.max(...probe);
+  let rate=1; if(lead0>-40&&lead0<30) rate=.35; else if(lead0>L1-30&&lead0<L1+AE*.7) rate=.55;
+  A.tau+=real*rate; const t=A.tau;
+  const nat=[0,1,2,3,4,5].map(i=>natural(i,t));
+  const leadE=Math.max(...nat.map(s=>s.e))+6, al=ss((t-(A.tMark+.4))/1.8);
+  const P=nat.map((s,i)=>{const rr=R0+A.rank[i]*12+Math.sin(t*1.3+A.jitter[i])*3, tg=leadE-A.rank[i]*(30+A.rank[i]*3);
+    return {e:s.e+(tg-s.e)*al, r:s.r+(rr-s.r)*al}});
+  // 位置・向き・波しぶき
+  const B=P.map((p,i)=>{const [x,y]=pos(p.e,p.r),[x2,y2]=pos(p.e+2,p.r);const ang=Math.atan2(y2-y,x2-x);
+    const prev=A.prevAng?A.prevAng[i]:ang; let dA=ang-prev; while(dA>Math.PI)dA-=2*Math.PI; while(dA<-Math.PI)dA+=2*Math.PI;
+    return {x,y,ang,turn:Math.abs(dA)/Math.max(real,1e-3),e:p.e}});
+  A.prevAng=B.map(b=>b.ang);
+  B.forEach((b,i)=>{ if(b.e<-200||A.fin.includes(i)&&b.e>LAP+120) return;
+    const n=b.turn>1.2?4:2;
+    for(let k=0;k<n;k++){const side=k%2?1:-1, sx=b.x-Math.cos(b.ang)*14, sy=b.y-Math.sin(b.ang)*14;
+      A.parts.push({x:sx,y:sy,vx:-Math.cos(b.ang)*20+Math.cos(b.ang+side*Math.PI/2)*(18+b.turn*14)*Math.random(),
+        vy:-Math.sin(b.ang)*20+Math.sin(b.ang+side*Math.PI/2)*(18+b.turn*14)*Math.random(),life:.9+(b.turn>1.2?.5:0),age:0,s:5+Math.random()*4+(b.turn>1.2?5:0)})}
+  });
+  A.parts=A.parts.filter(p=>(p.age+=real*rate)<p.life);
+  A.parts.forEach(p=>{p.x+=p.vx*real*rate;p.y+=p.vy*real*rate;p.vx*=.96;p.vy*=.96});
+  // カメラ：先頭付近を追う
+  const order=[0,1,2,3,4,5].sort((a,b)=>B[b].e-B[a].e);
+  const fx=(B[order[0]].x*2+B[order[1]].x+B[order[2]].x)/4;
+  cam.z=cssH/300; const visW=cssW/cam.z;
+  let tx=visW>=WW?WW/2:Math.min(WW-visW/2,Math.max(visW/2,fx));
+  cam.x+= (tx-cam.x)*Math.min(1,real*3);
+  draw(B,A.parts,t);
+  // HUD
+  $("phase").textContent=phase(B[order[0]].e);
+  $("live").innerHTML=order.map(i=>chip(i)).join("");
+  const sp=V*rate; audioSpeed(sp);
+  // 実況
+  if(!A.said.go&&t>T0-.4){A.said.go=1;say("スタートしました！")}
+  if(!A.said.slit&&t>Math.max(...A.tS)+.2){A.said.slit=1;flash("スリット",900)}
+  if(!A.said.kima&&t>A.tMark+.5){A.said.kima=1;flash(`${A.w+1}号艇 ${A.r.kima}！`,1800);
+    say(`1マーク、${A.w+1}号艇が${A.r.kima}で抜け出した！`); if(navigator.vibrate)navigator.vibrate(30)}
+  if(!A.said.back&&B[order[0]].e>L1+AE+120){A.said.back=1;say(`バックストレッチ、${A.r.order.slice(0,3).map(x=>x+1).join("－")}の態勢です。`)}
+  if(!A.said.m2&&B[order[0]].e>L1+AE+BK){A.said.m2=1;say(`2マーク、先頭は${A.w+1}号艇。後続は懸命に追う！`)}
+  A.r.order.forEach(i=>{if(B[i].e>=LAP&&!A.fin.includes(i))A.fin.push(i)});
+  if(!A.said.goal&&A.fin.length){A.said.goal=1;flash("ゴール！",1600);say(`${A.w+1}号艇、1着でゴール！ ${A.r.order.slice(0,3).map(x=>x+1).join("－")}で決着！`);if(navigator.vibrate)navigator.vibrate([40,60,40])}
+  if(A.fin.length>=6||(A.fin.length&&t>A.tMark+12)){
+    const key=A.r.order.slice(0,3).join("-"), pc=last&&last.tri.get(key), pk=last&&last.km[A.r.kima];
+    $("resultLine").innerHTML="着順："+A.r.order.map(b=>chip(b)).join(" ")+`　決まり手：${A.r.kima}`+
+      (last?`<br><small>この3連単になる確率 ${pc?(pc/last.N*100).toFixed(1):"0.1未満"}%／${A.w+1}号艇の${A.r.kima}になる確率 ${(((last.kmBoat[A.w+"-"+A.r.kima]||0)/last.N)*100).toFixed(1)}%</small>`:"");
+    audioStop(); setTimeout(()=>{if(anim===A)anim=null},1200);
+  }
+  if(anim===A) requestAnimationFrame(frame);
+}
+function worldToScreen(){g.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*(cssW/2-cam.x*cam.z),dpr*(cssH/2-(MY)*cam.z))}
+function draw(B,parts,t){
+  g.setTransform(1,0,0,1,0,0);
+  worldToScreen();
+  if(!waterPat) waterPat=g.createPattern(water,"repeat");
+  g.save();g.translate((t*6)%256,(t*3)%256);g.fillStyle=waterPat;g.fillRect(-400,-300,WW+800,1000);g.restore();
+  // 光の反射
+  const sh=g.createRadialGradient(SX,MY-120,10,SX,MY-120,520);sh.addColorStop(0,"rgba(180,220,255,.10)");sh.addColorStop(1,"rgba(0,0,0,0)");
+  g.fillStyle=sh;g.fillRect(-400,-300,WW+800,1000);
+  // コースのブイ列
+  g.fillStyle="#ffcc33";for(let x=M2X;x<=M1X;x+=40){for(const y of [MY+150,MY-150]){g.beginPath();g.arc(x,y,2.4,0,7);g.fill()}}
+  // スタートライン／ゴール
+  g.strokeStyle="rgba(255,255,255,.55)";g.lineWidth=2;g.setLineDash([8,7]);g.beginPath();g.moveTo(SX,MY+10);g.lineTo(SX,MY+150);g.stroke();g.setLineDash([]);
+  g.fillStyle="rgba(255,255,255,.75)";g.font="bold 11px sans-serif";g.fillText("スタート／ゴール",SX-44,MY+166);
+  // 波しぶき
+  parts.forEach(p=>{const k=p.age/p.life, s=p.s*(1+k*1.6);g.globalAlpha=(1-k)*.8;g.drawImage(foam,p.x-s/2,p.y-s/2,s,s)});g.globalAlpha=1;
+  // ターンマーク
+  for(const [x,l] of [[M1X,"1"],[M2X,"2"]]){const bob=Math.sin(t*3+x)*1.2;
+    g.fillStyle="rgba(0,0,0,.35)";g.beginPath();g.ellipse(x+3,MY+5,11,5,0,0,7);g.fill();
+    const gr=g.createLinearGradient(x-9,0,x+9,0);gr.addColorStop(0,"#c94a0a");gr.addColorStop(.45,"#ff8a2a");gr.addColorStop(1,"#a33a05");
+    g.fillStyle=gr;g.beginPath();g.ellipse(x,MY+bob,9,9,0,0,7);g.fill();g.fillStyle="#fff";g.font="bold 10px sans-serif";g.textAlign="center";g.textBaseline="middle";g.fillText(l,x,MY+bob);g.textAlign="start";g.textBaseline="alphabetic"}
+  // ボート（奥から）
+  [0,1,2,3,4,5].map(i=>[B[i],i]).sort((a,b)=>a[0].y-b[0].y).forEach(([b,i])=>drawBoat(b.x,b.y,b.ang,i,t));
+  // スリット表示
+  if(anim&&t>T0-.6&&t<Math.max(...anim.tS)+1.3){
+    B.forEach((b,i)=>{g.fillStyle="rgba(0,0,0,.6)";g.fillRect(b.x-30,b.y-8,24,15);g.fillStyle="#ffe17a";g.font="bold 11px sans-serif";
+      g.fillText("."+String(Math.round(anim.r.st[i]*100)).padStart(2,"0"),b.x-28,b.y+4)});
+  }
+}
+function drawBoat(x,y,ang,i,t){
+  const [bg,fg]=COLORS[i];
+  g.save();g.translate(x,y);g.rotate(ang);
+  g.fillStyle="rgba(0,0,0,.35)";g.beginPath();g.ellipse(-1,4,17,7,0,0,7);g.fill();
+  const hull=g.createLinearGradient(0,-8,0,8);hull.addColorStop(0,"#f2f6fa");hull.addColorStop(1,"#9fb0c0");
+  g.fillStyle=hull;g.strokeStyle="#0008";g.lineWidth=1;
+  g.beginPath();g.moveTo(18,0);g.quadraticCurveTo(12,-8,2,-8);g.lineTo(-14,-7);g.lineTo(-14,7);g.lineTo(2,8);g.quadraticCurveTo(12,8,18,0);g.closePath();g.fill();g.stroke();
+  g.fillStyle=bg;g.fillRect(5,-5,8,10);g.strokeStyle="#0006";g.strokeRect(5,-5,8,10);   // 艇番プレート
+  g.fillStyle="#333";g.fillRect(-17,-3,4,6);                                             // エンジン
+  g.fillStyle=bg;g.beginPath();g.ellipse(-4,0,5,4.5,0,0,7);g.fill();g.stroke();           // 選手（勝負服）
+  g.fillStyle="#111";g.beginPath();g.arc(-2,0,2.6,0,7);g.fill();                         // ヘルメット
+  g.rotate(-ang);g.fillStyle=fg;g.font="bold 9px sans-serif";g.textAlign="center";g.textBaseline="middle";
+  const nx=Math.cos(ang)*9, ny=Math.sin(ang)*9; g.fillText(i+1,nx,ny);
+  g.restore();g.textAlign="start";g.textBaseline="alphabetic";
+}
+function idle(){
+  if(!cssW) return; cam.z=cssH/300; const visW=cssW/cam.z; cam.x=Math.min(WW-visW/2,Math.max(visW/2,SX-60));
+  const cs=courses(); const B=cs.map((c,i)=>{const [x,y]=pos(-120,R0+GAP*(c-1));return {x,y,ang:0}});
+  draw(B,[],0);
+}
+addEventListener("resize",resize); resize();
+setSoundLabel();
+$("btnSound").addEventListener("click",()=>{soundOn=!soundOn;try{localStorage.setItem("kyotei-sim-sound",soundOn?"on":"off")}catch(e){}setSoundLabel();if(!soundOn)audioStop()});
+</script>
+<script>
+/* 出走表スクショの読み取り結果（文字と位置）から各艇の数字を取り出す */
+function parseBoaters(words,W){
+  const T=words.map(w=>({t:w.t.replace(/\s/g,""),x:w.x/W,y:w.y})).filter(w=>w.t);
+  const band=(a,b)=>T.filter(w=>w.x>=a&&w.x<b);
+  const anchors=band(.33,.49).filter(w=>/^\d\.\d\d$/.test(w.t)).sort((a,b)=>a.y-b.y);
+  if(anchors.length<3) return null;
+  const diffs=[];for(let i=1;i<anchors.length;i++)diffs.push(anchors[i].y-anchors[i-1].y);
+  diffs.sort((a,b)=>a-b); const rowH=diffs[Math.floor(diffs.length/2)]/3;
+  const near=(list,y,tol)=>{let best=null,bd=1e9;for(const w of list){const d=Math.abs(w.y-y);if(d<tol&&d<bd){bd=d;best=w}}return best};
+  const motList=band(.67,.85).filter(w=>/^\d{1,3}\.\d%?$/.test(w.t));
+  const stList=band(.17,.33).filter(w=>/^\.?\d{2}$/.test(w.t));
+  const fList=band(0,.17).filter(w=>/^F[0-9oOIl]$/.test(w.t));
+  return anchors.slice(0,6).map((a,i)=>{
+    const out={waku:i+1,win:parseFloat(a.t)};
+    const m=near(motList,a.y+rowH,rowH*.5); if(m) out.mot=parseFloat(m.t);
+    const s=stList.filter(w=>w.y>a.y-rowH*.3&&w.y<a.y+rowH*.9).sort((p,q)=>p.y-q.y)[0];
+    if(s) out.st=parseFloat("0."+s.t.replace(".",""));
+    const f=near(fList,a.y+rowH*.25,rowH*.8); if(f) out.f=parseInt(f.t[1].replace(/[oO]/,"0").replace(/[Il]/,"1"),10);
+    return out;
+  });
+}
+/* ---------- スクショから自動入力 ---------- */
+(async function(){
+  const box=$("ocrBox"), btn=$("btnOcr"), file=$("ocrFile"), msg=$("ocrMsg");
+  msg.textContent="boatersの「出走表」タブのスクショを選ぶと、数字を読み取って自動で入力します（初回は準備に少し時間がかかります）。";
+  file.onchange=async()=>{
+    const files=[...file.files].slice(0,4); file.value=""; if(!files.length) return;
+    box.classList.add("busy");
+    try{
+      let res=null;
+      for(const f of files){ res=await readShot(f,p=>msg.textContent=p); if(res) break; }
+      const got=res?applyOcr({boats:res}):0;
+      msg.textContent=got?`${got}項目を読み取りました。オレンジ枠の数字が合っているか一度確認してください。`:
+        "表の数字を見つけられませんでした。boatersの「出走表」タブを、表全体が入るようにスクショしてお試しください。";
+    }catch(e){
+      msg.textContent="読み取りの準備に失敗しました。通信状態の良いところでもう一度お試しください。";
+    }finally{ box.classList.remove("busy"); }
+  };
+})();
+let ocrWorker=null;
+function loadScript(src){return new Promise((ok,ng)=>{const s=document.createElement("script");s.src=src;s.onload=ok;s.onerror=ng;document.head.appendChild(s)})}
+async function getWorker(progress){
+  if(ocrWorker) return ocrWorker;
+  if(!window.Tesseract){ progress("読み取りの準備中…"); await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"); }
+  progress("読み取りの準備中…（初回のみ数十秒）");
+  const w=await Tesseract.createWorker("eng",1,{logger:m=>{ if(m.status==="recognizing text") progress(`読み取り中… ${Math.round(m.progress*100)}%`) }});
+  await w.setParameters({tessedit_char_whitelist:"0123456789.%FLNo",tessedit_pageseg_mode:"11"});
+  ocrWorker=w; return w;
+}
+async function readShot(fileObj,progress){
+  const img=await createImageBitmap(fileObj);
+  const c=document.createElement("canvas"); c.width=img.width; c.height=img.height;
+  const g2=c.getContext("2d"); g2.drawImage(img,0,0);
+  const d=g2.getImageData(0,0,c.width,c.height), px=d.data;
+  let sum=0; for(let i=0;i<px.length;i+=4) sum+=px[i]*.3+px[i+1]*.59+px[i+2]*.11;
+  const dark=sum/(px.length/4)<128;
+  for(let i=0;i<px.length;i+=4){ let v=px[i]*.3+px[i+1]*.59+px[i+2]*.11; if(dark) v=255-v; const o=v>150?255:0; px[i]=px[i+1]=px[i+2]=o; }
+  g2.putImageData(d,0,0);
+  const w=await getWorker(progress);
+  progress("読み取り中…");
+  const {data}=await w.recognize(c);
+  const words=(data.words||[]).map(x=>({t:x.text,x:(x.bbox.x0+x.bbox.x1)/2,y:(x.bbox.y0+x.bbox.y1)/2}));
+  return parseBoaters(words,c.width);
+}
+function applyOcr(res){
+  const boats=res&&Array.isArray(res.boats)?res.boats:[]; let n=0; const changed=[];
+  const ok={win:v=>v>=0&&v<=10,st:v=>v>0&&v<.5,mot:v=>v>=0&&v<=100,ten:v=>v>=6&&v<=7.6};
+  boats.forEach(b=>{
+    const i=(+b.waku)-1; if(!(i>=0&&i<6)) return;
+    for(const k of ["win","st","mot","ten"]){const v=parseFloat(b[k]); if(Number.isFinite(v)&&ok[k](v)){data[i][k]=v;n++;changed.push(i+"-"+k)}}
+    const c=parseInt(b.course,10); if(c>=1&&c<=6){data[i].c=c;n++;changed.push(i+"-c")}
+    const f=parseInt(b.f,10); if(f>=0&&f<=3) data[i].f=f;
+  });
+  if(new Set(data.map(b=>b.c)).size<6) data.forEach((b,i)=>b.c=i+1);
+  store("kyotei-sim-v1",data); buildRows(); recalc();
+  changed.forEach(id=>{const [i,k]=id.split("-");const el=document.querySelector(`#rows [data-i="${i}"][data-k="${k}"]`);if(el)el.classList.add("filled")});
+  return n;
+}
+</script>
+</body>
+</html>
