@@ -19,18 +19,16 @@ jobs:
           git config user.name github-actions
           git config user.email github-actions@users.noreply.github.com
           mkdir -p odds /tmp/k
-          for ymd in $(seq -w 260901 260930); do
+          get() { o=odds/$1_$2_$(printf %02d $3).html.gz; [ -s $o ] && return
+            curl -s --compressed -m 30 -A "Mozilla/5.0" "https://www.boatrace.jp/owpc/pc/race/odds3t?rno=$3&jcd=$2&hd=$1" | gzip > $o
+            [ $(stat -c%s $o) -lt 2000 ] && rm -f $o; sleep 1; }
+          export -f get
+          for ymd in $(seq -w 260908 260930) $(seq -w 260801 260831); do
             f=data/K/k$ymd.lzh; [ -f $f ] || continue
             rm -rf /tmp/k/*; lha xqw=/tmp/k $f >/dev/null 2>&1
             for j in $(cat /tmp/k/* | grep -ao '^[0-9][0-9]KBGN' | cut -c1-2 | sort -u); do
-              for r in $(seq 1 12); do
-                o=odds/20${ymd}_${j}_$(printf %02d $r).html.gz
-                [ -s $o ] && continue
-                curl -s --compressed -m 30 -A "Mozilla/5.0" "https://www.boatrace.jp/owpc/pc/race/odds3t?rno=$r&jcd=$j&hd=20$ymd" | gzip > $o
-                [ $(stat -c%s $o) -lt 2000 ] && rm -f $o
-                sleep 1
-              done
-            done
+              for r in $(seq 1 12); do echo "20$ymd $j $r"; done
+            done | xargs -P 3 -n 3 bash -c 'get "$0" "$1" "$2"'
             echo "20$ymd OK $(ls odds | wc -l)"
             git add odds; git commit -qm "odds 20$ymd" && git pull -q --rebase && git push -q
           done
