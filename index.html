@@ -107,6 +107,13 @@ details.card summary{font-weight:700;cursor:pointer;color:var(--mute)}
 .ocr .note{margin-top:6px}
 td input.filled,td select.filled{border-color:var(--accent);background:#ffb0201f}
 .fbadge{display:block;color:#e53935;font-weight:700;font-size:11px}
+.card h3{font-size:13px;color:var(--mute);margin:12px 0 4px;font-weight:700}
+.bar .fill.alt{background:linear-gradient(90deg,#8a6cff,#29c3ff)}
+.envrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.envrow label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute)}
+.envrow input,.envrow select{font:inherit;font-size:16px;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);width:96px;text-align:center}
+.stline{display:flex;flex-wrap:wrap;gap:6px}.stline span{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:5px 8px;font-size:14px}
+.stline small{color:var(--mute);font-size:11px}
 .toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#000d;color:#fff;
   padding:10px 14px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90vw}
 .toast.show{opacity:1}
@@ -138,12 +145,17 @@ td input.filled,td select.filled{border-color:var(--accent);background:#ffb0201f
       <p class="note" id="ocrMsg"></p>
     </div>
     <div class="tablewrap"><table class="inputs">
-      <thead><tr><th>枠</th><th>進入</th><th>全国勝率</th><th>平均ST</th><th>モーター<br>2連率%</th><th>展示<br>タイム</th></tr></thead>
+      <thead><tr><th>枠</th><th>進入</th><th>全国勝率</th><th>平均ST</th><th>モーター<br>2連率%</th><th>展示<br>タイム</th><th>展示<br>ST</th></tr></thead>
       <tbody id="rows"></tbody></table></div>
-    <p class="note">入力すると自動で3万回シミュレーションし直します。</p>
+    <div class="envrow">
+      <label>風速(m)<input id="envWind" inputmode="decimal"></label>
+      <label>風向き<select id="envDir"><option value="tail">追い風</option><option value="head">向かい風</option><option value="cross">横風</option></select></label>
+      <label>波高(cm)<input id="envWave" inputmode="decimal"></label>
+    </div>
+    <p class="note">展示STはフライングなら「F.02」のように入力します。風速と波高はスクショから自動で入りますが、<b>風向きは場によって追い風・向かい風の向きが違うため、ここで選んでください</b>。入力すると自動で3万回シミュレーションし直します。</p>
   </div>
 
-  <div class="card"><h2>予想</h2><div id="summary"></div><div id="winBars"></div></div>
+  <div class="card"><h2>予想</h2><div id="summary"></div><h3>頭（1着率）</h3><div id="winBars"></div><h3>ヒモ（2・3着に来る率）</h3><div id="himoBars"></div></div>
 
   <div class="card">
     <h2>3連単と期待値</h2>
@@ -153,9 +165,9 @@ td input.filled,td select.filled{border-color:var(--accent);background:#ffb0201f
   </div>
 
   <div class="card">
-    <h2>予想の根拠（各要素の点数）</h2>
+    <h2>予想の根拠</h2>
     <div class="tablewrap" id="why"></div>
-    <p class="note">コースは最も有利なコースとの差、他は6艇の平均との差を点数にしています。合計が高いほど1着になりやすく、そこにスタートのブレや展開の運を加えて何万回もレースを回しています。</p>
+    <p class="note">1着は「頭の点数」で決め、残りの5艇から2・3着を「ヒモの点数」で決めています。ヒモはコースの差を小さくし、勝率・モーター・展示の地力を重視したうえで、1着艇の決まり手による展開（まくりならその外が続く、差しなら1号艇が残る、など）を加えています。スタートは想定STを基準に毎回ブレさせ、何万回もレースを回しています。</p>
   </div>
 
   <div class="card">
@@ -174,8 +186,14 @@ td input.filled,td select.filled{border-color:var(--accent);background:#ffb0201f
     <h2 style="margin-top:12px">コース別1着率（%）</h2>
     <p class="note" style="margin-top:0">初期値は全国平均の目安です。走る場の数字に合わせると、その場らしい結果になります。</p>
     <div class="cfg" id="venue"></div>
-    <h2 style="margin-top:12px">要素の効き具合</h2>
+    <h2 style="margin-top:12px">コース別のヒモ率（%・1着以外のとき2・3着に来る率）</h2>
+    <div class="cfg" id="himoPrior"></div>
+    <h2 style="margin-top:12px">頭の効き具合</h2>
     <div class="cfg" id="weights"></div>
+    <h2 style="margin-top:12px">ヒモの効き具合</h2>
+    <div class="cfg" id="weightsH"></div>
+    <h2 style="margin-top:12px">その他</h2>
+    <div class="cfg" id="misc"></div>
     <div class="btns"><button id="btnCfgReset">初期値に戻す</button></div>
   </details>
 </div>
@@ -186,67 +204,125 @@ const COLORS=[["#f4f4f4","#111"],["#1b1b1b","#fff"],["#e53935","#fff"],["#1e63d6
 const DEF_BOATS=[
   {c:1,win:6.80,st:.15,mot:38,ten:6.78},{c:2,win:5.20,st:.16,mot:33,ten:6.82},{c:3,win:6.10,st:.14,mot:41,ten:6.75},
   {c:4,win:7.20,st:.12,mot:45,ten:6.72},{c:5,win:4.80,st:.17,mot:30,ten:6.85},{c:6,win:5.50,st:.16,mot:35,ten:6.80}];
-const DEF_CFG={venue:[55,14,12,11,6,2],w:{win:.45,mot:.015,ten:3.5,st:8},margin:1.2};
+const DEF_CFG={
+  venue:[55,14,12,11,6,2],          // コース別1着率（頭の土台）
+  himo:[42,48,45,42,34,23],          // 1着でなかったときの2・3着率（ヒモの土台）
+  w:{win:.45,mot:.015,ten:3.5,st:8}, // 頭の効き具合
+  wh:{win:.35,mot:.012,ten:2.5,st:2.5,dev:1}, // ヒモの効き具合（devは展開の効き）
+  stMix:.4,                          // 想定STにおける展示STの比重
+  margin:1.2};
+const DEF_ENV={wind:0,dir:"cross",wave:0};
 const $=id=>document.getElementById(id);
 function load(k,d){try{const s=localStorage.getItem(k);if(s)return JSON.parse(s)}catch(e){}return JSON.parse(JSON.stringify(d))}
 function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
-let data=load("kyotei-sim-v1",DEF_BOATS), cfg=load("kyotei-sim-cfg",DEF_CFG), odds=load("kyotei-sim-odds",{}), log=load("kyotei-sim-log",[]);
+let data=load("kyotei-sim-v1",DEF_BOATS), cfg=load("kyotei-sim-cfg",DEF_CFG), odds=load("kyotei-sim-odds",{}), log=load("kyotei-sim-log",[]), env=load("kyotei-sim-env",DEF_ENV);
 if(!Array.isArray(data)||data.length!==6) data=JSON.parse(JSON.stringify(DEF_BOATS));
-cfg=Object.assign(JSON.parse(JSON.stringify(DEF_CFG)),cfg); cfg.w=Object.assign({},DEF_CFG.w,cfg.w);
+{const c=JSON.parse(JSON.stringify(DEF_CFG));cfg=Object.assign(c,cfg);cfg.w=Object.assign({},DEF_CFG.w,cfg.w);cfg.wh=Object.assign({},DEF_CFG.wh,cfg.wh);
+ if(!Array.isArray(cfg.himo)||cfg.himo.length!==6)cfg.himo=DEF_CFG.himo.slice();}
+env=Object.assign({},DEF_ENV,env);
 function chip(i){const [bg,fg]=COLORS[i];return `<span class="chip" style="background:${bg};color:${fg}">${i+1}</span>`}
 function combo(k){return `<span class="combo">${k.split("-").map(Number).map((x,j)=>chip(x)+(j<2?"<i>-</i>":"")).join("")}</span>`}
 function courses(){const cs=data.map(b=>b.c);return new Set(cs).size===6?cs:[1,2,3,4,5,6]}
+const num=v=>typeof v==="number"&&Number.isFinite(v);
+
+/* ---------- 想定ST（平均ST×展示ST） ---------- */
+function predST(b){
+  let base=num(b.st)?b.st:.17;
+  if(b.f>=1) base+=.02;                            // F持ちはスタートを控えやすい
+  if(!num(b.est)) return {st:base,from:"平均"};
+  let ex=b.est<0?.01:b.est;                        // 展示でのフライングは「踏み込めている」とみなし.01扱い
+  if(b.f>=1&&b.est<.05) ex=Math.max(ex,.05);       // F持ちの攻めた展示は本番では割り引く
+  return {st:(1-cfg.stMix)*base+cfg.stMix*ex,from:"平均+展示"};
+}
+/* ---------- 風・波 ---------- */
+function windAdj(c){ // 頭へのコース別補正
+  const v=Math.max(0,env.wind||0), h=Math.max(0,env.wave||0);
+  let a=0;
+  if(env.dir==="head") a=[-.06,-.01,.035,.035,.02,0][c-1]*v;   // 向かい風：イン不利、まくり有利
+  else if(env.dir==="tail") a=[.035,.01,-.015,-.02,-.02,-.02][c-1]*v; // 追い風：イン有利
+  else a=[-.012,0,.004,.004,.002,0][c-1]*v;                    // 横風：わずかにイン不利
+  if(c===1&&h>5) a-=.01*(h-5);                                  // 波が高いとイン不利
+  return a;
+}
+function roughness(){ // 風・波が強いほど展開が荒れる
+  const v=Math.max(0,env.wind||0), h=Math.max(0,env.wave||0);
+  return 1+.025*Math.max(0,v-3)+.015*Math.max(0,h-3);
+}
 
 /* ---------- モデル ---------- */
-function prior(){const s=cfg.venue.reduce((a,b)=>a+Math.max(.1,b),0);return cfg.venue.map(v=>Math.log(Math.max(.1,v)/s))}
+function logShare(arr){const s=arr.reduce((a,b)=>a+Math.max(.1,b),0);return arr.map(v=>Math.log(Math.max(.1,v)/s))}
 function gumbel(){return -Math.log(-Math.log(Math.random()+1e-12)+1e-12)}
 function normal(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
-function parts(cs,st){ // 各艇の点数の内訳
-  const PR=prior(), m=k=>data.reduce((s,b)=>s+b[k],0)/6, mw=m("win"), mm=m("mot"), mt=m("ten"), W=cfg.w;
-  return data.map((b,i)=>{
-    const inner=[];for(let j=0;j<6;j++) if(cs[j]<cs[i]) inner.push(st[j]);
-    const oth=st.filter((_,j)=>j!==i);
-    const adv=inner.length?inner.reduce((a,x)=>a+x,0)/inner.length-st[i]:(oth.reduce((a,x)=>a+x,0)/oth.length-st[i])*.5;
-    return {course:PR[cs[i]-1],win:W.win*(b.win-mw),mot:W.mot*(b.mot-mm),ten:W.ten*(mt-b.ten),st:W.st*adv,adv};
-  });
+function means(){const m=k=>{const xs=data.map(b=>b[k]).filter(num);return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:0};return {win:m("win"),mot:m("mot"),ten:m("ten")}}
+function slitAdv(cs,st,i){
+  const inner=[];for(let j=0;j<6;j++) if(cs[j]<cs[i]) inner.push(st[j]);
+  const oth=st.filter((_,j)=>j!==i);
+  return inner.length?inner.reduce((a,x)=>a+x,0)/inner.length-st[i]:(oth.reduce((a,x)=>a+x,0)/oth.length-st[i])*.5;
+}
+function headParts(cs,st){ // 頭（1着）を決める点数
+  const PR=logShare(cfg.venue), M=means(), W=cfg.w;
+  return data.map((b,i)=>{const adv=slitAdv(cs,st,i);
+    return {course:PR[cs[i]-1]+windAdj(cs[i]),win:W.win*((b.win||0)-M.win),mot:W.mot*((b.mot||0)-M.mot),
+      ten:num(b.ten)?W.ten*(M.ten-b.ten):0,st:W.st*adv,adv}});
+}
+function himoParts(cs,st){ // ヒモ（2・3着）を決める点数：コース差は小さく、地力と足を重視
+  const PR=logShare(cfg.himo), M=means(), W=cfg.wh;
+  return data.map((b,i)=>({course:PR[cs[i]-1],win:W.win*((b.win||0)-M.win),mot:W.mot*((b.mot||0)-M.mot),
+      ten:num(b.ten)?W.ten*(M.ten-b.ten):0,st:W.st*slitAdv(cs,st,i)}));
+}
+function devBonus(cw,kima,c){ // 1着艇の決まり手による展開（ヒモへの影響）
+  let x=0;
+  if(kima==="逃げ"){ if(c===2||c===3) x=.15; }
+  else if(kima==="差し"){ if(c===1) x=.3; else if(c===cw+1) x=.1; }
+  else if(kima==="まくり"){ if(c<cw) x=-.4; else if(c===cw+1) x=.4; else if(c===cw+2) x=.2; }
+  else if(kima==="まくり差し"){ if(c===1) x=.15; else if(c<cw) x=-.2; else if(c===cw+1) x=.25; }
+  return x*cfg.wh.dev;
 }
 function simOne(cs){
-  const st=data.map(b=>Math.max(.01,b.st+normal()*.035)), P=parts(cs,st);
-  const score=P.map(p=>p.course+p.win+p.mot+p.ten+p.st+gumbel());
-  const order=[0,1,2,3,4,5].sort((a,b)=>score[b]-score[a]);
-  const w=order[0], c=cs[w], a=P[w].adv; let kima;
+  const R=roughness();
+  const st=data.map(b=>Math.max(.01,predST(b).st+normal()*.03*R));
+  const H=headParts(cs,st);
+  const hs=H.map(p=>p.course+p.win+p.mot+p.ten+p.st+gumbel()*R);
+  const w=hs.indexOf(Math.max(...hs)), c=cs[w], a=H[w].adv; let kima;
   if(c===1) kima="逃げ"; else if(c===2) kima=a>.05?"まくり":"差し";
   else if(c<=4) kima=a>.04?"まくり":"まくり差し"; else kima=a>.06?"まくり":(Math.random()<.5?"まくり差し":"差し");
-  return {order,st,kima,cs};
+  const Hm=himoParts(cs,st);
+  const rest=[0,1,2,3,4,5].filter(i=>i!==w);
+  const ms=rest.map(i=>[i,Hm[i].course+Hm[i].win+Hm[i].mot+Hm[i].ten+Hm[i].st+devBonus(c,kima,cs[i])+gumbel()*R]).sort((p,q)=>q[1]-p[1]);
+  return {order:[w,...ms.map(x=>x[0])],st,kima,cs};
 }
 
 /* ---------- 計算 ---------- */
 let last=null;
 function calc(){
-  const cs=courses(), N=30000, win=[0,0,0,0,0,0], top2=[0,0,0,0,0,0], tri=new Map(), km={}, kmBoat={};
+  const cs=courses(), N=30000, z=()=>[0,0,0,0,0,0], win=z(), top2=z(), top3=z(), himo=z(), tri=new Map(), km={}, kmBoat={};
   for(let k=0;k<N;k++){
-    const r=simOne(cs); win[r.order[0]]++; top2[r.order[0]]++; top2[r.order[1]]++;
-    const key=r.order.slice(0,3).join("-"); tri.set(key,(tri.get(key)||0)+1);
-    km[r.kima]=(km[r.kima]||0)+1; const kb=r.order[0]+"-"+r.kima; kmBoat[kb]=(kmBoat[kb]||0)+1;
+    const r=simOne(cs), o=r.order; win[o[0]]++; top2[o[0]]++; top2[o[1]]++; top3[o[0]]++; top3[o[1]]++; top3[o[2]]++; himo[o[1]]++; himo[o[2]]++;
+    const key=o.slice(0,3).join("-"); tri.set(key,(tri.get(key)||0)+1);
+    km[r.kima]=(km[r.kima]||0)+1; const kb=o[0]+"-"+r.kima; kmBoat[kb]=(kmBoat[kb]||0)+1;
   }
-  last={N,win,top2,tri,km,kmBoat,cs,sorted:[...tri.entries()].sort((a,b)=>b[1]-a[1])};
+  last={N,win,top2,top3,himo,tri,km,kmBoat,cs,sorted:[...tri.entries()].sort((a,b)=>b[1]-a[1])};
   render();
 }
 let calcT; function recalc(){clearTimeout(calcT);calcT=setTimeout(calc,250)}
 
 /* ---------- 表示 ---------- */
+function bars(arr,N,el,side){
+  const mx=Math.max(...arr,1);
+  $(el).innerHTML=arr.map((v,i)=>`<div class="bar">${chip(i)}<div class="track"><div class="fill${side?" alt":""}" style="width:${v/mx*100}%"></div></div><span class="v">${(v/N*100).toFixed(1)}%</span>${side?`<span class="v2">${side(i)}</span>`:""}</div>`).join("");
+}
 function render(){
   if(!last) return; const L=last, N=L.N;
-  // 荒れ度
-  const p=L.win.map(v=>v/N), ent=-p.reduce((s,x)=>s+(x>0?x*Math.log(x):0),0)/Math.log(6);
-  const fav=p.indexOf(Math.max(...p)), pv=p[fav]*100;
+  const p=L.win.map(v=>v/N), fav=p.indexOf(Math.max(...p)), pv=p[fav]*100;
   const lvl=pv>=60?["堅い","#2e9e4f"]:pv>=40?["本命有力","#1e63d6"]:pv>=28?["混戦","#e08a00"]:["荒れ模様","#e53935"];
+  const hFav=L.himo.indexOf(Math.max(...L.himo.map((v,i)=>i===fav?-1:v)));
   $("summary").innerHTML=`<div class="sum-main"><span class="badge" style="background:${lvl[1]}">${lvl[0]}</span>
-    <span>本命 ${chip(fav)} 1着率 <b>${pv.toFixed(1)}%</b></span></div>
+    <span>頭 ${chip(fav)} 1着率 <b>${pv.toFixed(1)}%</b></span><span>ヒモ筆頭 ${chip(hFav)}</span></div>
     <div class="sum-sub">最有力の3連単 ${combo(L.sorted[0][0])} <b>${(L.sorted[0][1]/N*100).toFixed(1)}%</b>
-    ／ 上位10通りで全体の <b>${(L.sorted.slice(0,10).reduce((s,x)=>s+x[1],0)/N*100).toFixed(0)}%</b> をカバー</div>`;
-  const mx=Math.max(...L.win);
-  $("winBars").innerHTML=L.win.map((v,i)=>`<div class="bar">${chip(i)}<div class="track"><div class="fill" style="width:${v/mx*100}%"></div></div><span class="v">${(v/N*100).toFixed(1)}%</span><span class="v2">連対${(L.top2[i]/N*100).toFixed(0)}%</span></div>`).join("");
+    ／ 上位10通りで全体の <b>${(L.sorted.slice(0,10).reduce((s,x)=>s+x[1],0)/N*100).toFixed(0)}%</b> をカバー</div>
+    <div class="sum-sub">水面：${({head:"向かい風",tail:"追い風",cross:"横風"})[env.dir]} ${env.wind||0}m ／ 波 ${env.wave||0}cm${roughness()>1.05?"（荒れやすい条件）":""}</div>`;
+  bars(L.win,N,"winBars",i=>`3連対${(L.top3[i]/N*100).toFixed(0)}%`);
+  bars(L.himo,N,"himoBars",i=>`2着${((L.top2[i]-L.win[i])/N*100).toFixed(0)}%`);
   // 3連単＋期待値
   const top=L.sorted.slice(0,12);
   $("combos").innerHTML=top.map(([k,v])=>{const pr=v/N, o=parseFloat(odds[k]), ev=o?pr*o:null, good=ev&&ev>=cfg.margin;
@@ -258,13 +334,17 @@ function render(){
     store("kyotei-sim-odds",odds); render();}));
   const buys=buyList();
   $("buys").innerHTML=buys.length?buys.map(b=>`<span class="buy">${combo(b.k)} 期待値${b.ev.toFixed(2)}</span>`).join(""):
-    `<span class="empty">実際のオッズを入れると、期待値が基準（${cfg.margin.toFixed(2)}）以上の買い目がここに出ます</span>`;
-  // 根拠
-  const cs=L.cs, P=parts(cs,data.map(b=>b.st)), keys=[["course","コース"],["win","勝率"],["mot","モーター"],["ten","展示"],["st","スタート"]];
-  const base=Math.max(...P.map(p=>p.course));
-  $("why").innerHTML=`<table class="why"><thead><tr><th></th>${keys.map(k=>`<th>${k[1]}</th>`).join("")}<th>合計</th></tr></thead><tbody>`+
+    `<span class="empty">オッズが入ると、期待値が基準（${cfg.margin.toFixed(2)}）以上の買い目がここに出ます</span>`;
+  // 根拠（頭とヒモを別々に）
+  const cs=L.cs, ps=data.map(b=>predST(b)), st=ps.map(x=>x.st);
+  const table=(P,keys,lab)=>{const base=Math.max(...P.map(q=>q.course));
+    return `<h3>${lab}</h3><table class="why"><thead><tr><th></th>${keys.map(k=>`<th>${k[1]}</th>`).join("")}<th>合計</th></tr></thead><tbody>`+
     P.map((q,i)=>{const vals=keys.map(([k])=>k==="course"?q.course-base:q[k]);const tot=vals.reduce((a,b)=>a+b,0);
-      return `<tr><td>${chip(i)}<small>${cs[i]}コース</small></td>${vals.map(v=>`<td class="${v>.05?"pos":v<-.05?"neg":""}">${v>0?"+":""}${v.toFixed(2)}</td>`).join("")}<td class="tot">${tot>0?"+":""}${tot.toFixed(2)}</td></tr>`}).join("")+`</tbody></table>`;
+      return `<tr><td>${chip(i)}<small>${cs[i]}コース</small></td>${vals.map(v=>`<td class="${v>.05?"pos":v<-.05?"neg":""}">${v>0?"+":""}${v.toFixed(2)}</td>`).join("")}<td class="tot">${tot>0?"+":""}${tot.toFixed(2)}</td></tr>`}).join("")+`</tbody></table>`};
+  const stRow=`<h3>想定ST（本番）</h3><div class="stline">${data.map((b,i)=>`<span>${chip(i)} <b>.${String(Math.round(st[i]*100)).padStart(2,"0")}</b><small>平均${num(b.st)?"."+String(Math.round(b.st*100)).padStart(2,"0"):"—"}${num(b.est)?` 展示${b.est<0?"F":""}.${String(Math.round(Math.abs(b.est)*100)).padStart(2,"0")}`:""}${b.f?` F${b.f}`:""}</small></span>`).join("")}</div>`;
+  $("why").innerHTML=stRow+
+    table(headParts(cs,st),[["course","コース・風"],["win","勝率"],["mot","モーター"],["ten","展示"],["st","スタート"]],"頭（1着）の点数")+
+    table(himoParts(cs,st),[["course","コース"],["win","勝率"],["mot","モーター"],["ten","展示"],["st","スタート"]],"ヒモ（2・3着）の点数");
   renderLog();
 }
 function buyList(){
@@ -274,23 +354,41 @@ function buyList(){
 }
 
 /* ---------- 入力欄 ---------- */
+const fmtST=v=>!num(v)?"":(v<0?"F":"")+"."+String(Math.round(Math.abs(v)*100)).padStart(2,"0");
+function parseST(s){s=String(s).trim().toUpperCase();if(!s)return null;const f=s.startsWith("F");const n=parseFloat(s.replace("F","").replace(/^\./,"0."));
+  if(!Number.isFinite(n))return null;const v=n>=1?n/100:n;return f?-v:v}
 function buildRows(){
   $("rows").innerHTML=data.map((b,i)=>`<tr><td>${chip(i)}${b.f?`<small class="fbadge">F${b.f}</small>`:""}</td>
     <td><select data-i="${i}" data-k="c">${[1,2,3,4,5,6].map(v=>`<option ${v==b.c?"selected":""}>${v}</option>`).join("")}</select></td>
-    ${["win","st","mot","ten"].map(k=>`<td><input data-i="${i}" data-k="${k}" inputmode="decimal" value="${b[k]}"></td>`).join("")}</tr>`).join("");
+    ${["win","st","mot","ten"].map(k=>`<td><input data-i="${i}" data-k="${k}" inputmode="decimal" value="${num(b[k])?b[k]:""}"></td>`).join("")}
+    <td><input data-i="${i}" data-k="est" value="${fmtST(b.est)}" placeholder="—"></td></tr>`).join("");
   $("rows").querySelectorAll("input,select").forEach(el=>el.addEventListener("change",()=>{
-    const v=parseFloat(el.value); if(Number.isFinite(v)){data[+el.dataset.i][el.dataset.k]=v;store("kyotei-sim-v1",data);
-      if(el.dataset.k==="c"&&new Set(data.map(b=>b.c)).size<6) note("進入が重複しています。重複中は枠なりで計算します");
-      recalc();}}));
+    const i=+el.dataset.i,k=el.dataset.k;
+    if(k==="est"){data[i].est=parseST(el.value);}
+    else{const v=parseFloat(el.value); if(!Number.isFinite(v)) return; data[i][k]=v;}
+    store("kyotei-sim-v1",data);
+    if(k==="c"&&new Set(data.map(b=>b.c)).size<6) note("進入が重複しています。重複中は枠なりで計算します");
+    recalc();}));
+}
+function buildEnv(){
+  $("envWind").value=env.wind||0; $("envDir").value=env.dir; $("envWave").value=env.wave||0;
+  ["envWind","envDir","envWave"].forEach(id=>$(id).onchange=()=>{
+    env={wind:parseFloat($("envWind").value)||0,dir:$("envDir").value,wave:parseFloat($("envWave").value)||0};
+    store("kyotei-sim-env",env); recalc();});
 }
 function buildCfg(){
   $("venue").innerHTML=cfg.venue.map((v,i)=>`<label>${i+1}コース<input data-v="${i}" inputmode="decimal" value="${v}"></label>`).join("");
+  $("himoPrior").innerHTML=cfg.himo.map((v,i)=>`<label>${i+1}コース<input data-hp="${i}" inputmode="decimal" value="${v}"></label>`).join("");
   const W=[["win","勝率 1.0差"],["mot","モーター 1%差"],["ten","展示 1.00秒差"],["st","ST 1.00秒差"]];
-  $("weights").innerHTML=W.map(([k,l])=>`<label>${l}<input data-w="${k}" inputmode="decimal" value="${cfg.w[k]}"></label>`).join("")+
-    `<label>買いの基準（期待値）<input data-m="1" inputmode="decimal" value="${cfg.margin}"></label>`;
-  document.querySelectorAll("#venue input,#weights input").forEach(el=>el.addEventListener("change",()=>{
-    const v=parseFloat(el.value); if(!Number.isFinite(v)) return;
-    if(el.dataset.v) cfg.venue[+el.dataset.v]=v; else if(el.dataset.w) cfg.w[el.dataset.w]=v; else cfg.margin=v;
+  $("weights").innerHTML=W.map(([k,l])=>`<label>${l}<input data-w="${k}" inputmode="decimal" value="${cfg.w[k]}"></label>`).join("");
+  $("weightsH").innerHTML=W.map(([k,l])=>`<label>${l}<input data-wh="${k}" inputmode="decimal" value="${cfg.wh[k]}"></label>`).join("")+
+    `<label>展開の効き（倍）<input data-wh="dev" inputmode="decimal" value="${cfg.wh.dev}"></label>`;
+  $("misc").innerHTML=`<label>想定STの展示比重（0〜1）<input data-x="stMix" inputmode="decimal" value="${cfg.stMix}"></label>
+    <label>買いの基準（期待値）<input data-x="margin" inputmode="decimal" value="${cfg.margin}"></label>`;
+  document.querySelectorAll("#venue input,#himoPrior input,#weights input,#weightsH input,#misc input").forEach(el=>el.addEventListener("change",()=>{
+    const v=parseFloat(el.value); if(!Number.isFinite(v)) return; const d=el.dataset;
+    if(d.v) cfg.venue[+d.v]=v; else if(d.hp) cfg.himo[+d.hp]=v; else if(d.w) cfg.w[d.w]=v; else if(d.wh) cfg.wh[d.wh]=v;
+    else if(d.x==="stMix") cfg.stMix=Math.min(1,Math.max(0,v)); else cfg.margin=v;
     store("kyotei-sim-cfg",cfg); recalc();}));
   $("btnCfgReset").onclick=()=>{cfg=JSON.parse(JSON.stringify(DEF_CFG));store("kyotei-sim-cfg",cfg);buildCfg();recalc()};
 }
@@ -339,7 +437,7 @@ function exportLog(){
 }
 
 /* ---------- 起動 ---------- */
-buildRows(); buildCfg(); buildResultPickers();
+buildRows(); buildEnv(); buildCfg(); buildResultPickers();
 $("btnRecord").onclick=record;
 $("btnExport").onclick=exportLog;
 $("btnClear").onclick=()=>{if(confirm("検証記録をすべて消しますか？")){log=[];store("kyotei-sim-log",log);renderLog()}};
@@ -598,29 +696,62 @@ function parseOdds(words,W,H,px){
   });
   return Object.keys(out).length>=3?out:null;
 }
+/* スタート情報・水面気象スクショ（展示ST・進入・風速・波高） */
+function laneBoat(px,W,H,y){
+  const votes=[0,0,0,0,0,0];
+  for(const fx of [.015,.03,.045,.06]) for(const dy of [-12,0,12]){
+    const X=Math.round(fx*W), Y=Math.round(y+dy); if(Y<0||Y>=H) continue;
+    const i=(Y*W+X)*4, r=px[i],g=px[i+1],b=px[i+2];
+    let best=0,bd=1e9; BOX_COLORS.forEach((c,k)=>{const d=(r-c[0])**2+(g-c[1])**2+(b-c[2])**2; if(d<bd){bd=d;best=k}});
+    if(bd<9000) votes[best]++;
+  }
+  const m=Math.max(...votes); return m?votes.indexOf(m):-1;
+}
+function parseStart(words,W,H,px){
+  const T=words.map(w=>({t:w.t.replace(/\s/g,""),x:w.x/W,y:w.y})).filter(w=>w.t);
+  const sts=T.filter(w=>w.x>.8&&/^F?\.?\d{2}$/.test(w.t)).sort((a,b)=>a.y-b.y);
+  const out={};
+  if(sts.length>=4){
+    const boats=[]; const used=new Set();
+    sts.slice(0,6).forEach((w,k)=>{
+      const b=laneBoat(px,W,H,w.y); if(b<0||used.has(b)) return; used.add(b);
+      const f=w.t.startsWith("F"), v=parseInt(w.t.replace(/\D/g,""),10)/100;
+      boats.push({waku:b+1,est:f?-v:v,course:sts.length===6?k+1:undefined});
+    });
+    if(boats.length>=4) out.boats=boats;
+  }
+  for(const w of T){ let m;
+    if(out.wind===undefined&&(m=w.t.match(/(\d{1,2})m\/s/))) out.wind=+m[1];
+    if(out.wave===undefined&&(m=w.t.match(/(\d{1,3})cm/))) out.wave=+m[1]; }
+  return (out.boats||out.wind!==undefined||out.wave!==undefined)?out:null;
+}
 /* ---------- スクショから自動入力 ---------- */
 (async function(){
   const box=$("ocrBox"), btn=$("btnOcr"), file=$("ocrFile"), msg=$("ocrMsg");
-  msg.textContent="boatersの「出走表」「直前情報」「オッズ（3連単の人気順）」のスクショを選ぶと、数字を読み取って自動で入力します（何枚かまとめて選べます。初回は準備に少し時間がかかります）。";
+  msg.textContent="boatersの「出走表」「直前情報（展示タイム）」「スタート情報・水面気象」「オッズ（3連単の人気順）」のスクショを選ぶと、数字を読み取って自動で入力します（何枚かまとめて選べます。初回は準備に少し時間がかかります）。";
   file.onchange=async()=>{
-    const files=[...file.files].slice(0,4); file.value=""; if(!files.length) return;
+    const files=[...file.files].slice(0,8); file.value=""; if(!files.length) return;
     box.classList.add("busy");
     try{
-      const merged=[1,2,3,4,5,6].map(w=>({waku:w})), kinds=[], newOdds={};
+      const merged=[1,2,3,4,5,6].map(w=>({waku:w})), kinds=[], newOdds={}; let envGot=0;
       for(const f of files){
         const words=await readShot(f,p=>msg.textContent=p);
         let r=parseBoaters(words.list,words.W), kind="出走表";
         if(!r){ r=parseChokuzen(words.list,words.W); kind="直前情報"; }
         if(r){ kinds.push(kind); r.forEach(b=>Object.assign(merged[b.waku-1],b)); continue; }
+        const s=parseStart(words.list,words.W,words.H,words.orig);
+        if(s){ kinds.push("スタート情報"); (s.boats||[]).forEach(b=>Object.assign(merged[b.waku-1],b));
+          if(s.wind!==undefined){env.wind=s.wind;envGot++} if(s.wave!==undefined){env.wave=s.wave;envGot++} continue; }
         const o=parseOdds(words.list,words.W,words.H,words.orig);
         if(o){ kinds.push("オッズ"); Object.assign(newOdds,o); }
       }
-      let got=0;
+      let got=envGot;
+      if(envGot){ store("kyotei-sim-env",env); buildEnv(); }
       if(kinds.some(k=>k!=="オッズ")) got+=applyOcr({boats:merged});
       const nOdds=Object.keys(newOdds).length;
       if(nOdds){ Object.assign(odds,newOdds); store("kyotei-sim-odds",odds); render(); }
-      msg.textContent=(got||nOdds)?`${[...new Set(kinds)].join("・")}から読み取りました（${[got?got+"項目":"",nOdds?"オッズ"+nOdds+"通り":""].filter(Boolean).join("・")}）。数字が合っているか一度確認してください。`:
-        "表の数字を見つけられませんでした。boatersの「出走表」か「直前情報」タブを、表全体が入るようにスクショしてお試しください。";
+      msg.textContent=(got||nOdds)?`${[...new Set(kinds)].join("・")}から読み取りました（${[got?got+"項目":"",nOdds?"オッズ"+nOdds+"通り":""].filter(Boolean).join("・")}）。数字が合っているか一度確認してください。${envGot?"風向きは手動で選んでください。":""}`:
+        "表の数字を見つけられませんでした。boatersの各タブを、表全体が入るようにスクショしてお試しください。";
     }catch(e){
       msg.textContent="読み取りの準備に失敗しました。通信状態の良いところでもう一度お試しください。";
     }finally{ box.classList.remove("busy"); }
@@ -633,7 +764,7 @@ async function getWorker(progress){
   if(!window.Tesseract){ progress("読み取りの準備中…"); await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"); }
   progress("読み取りの準備中…（初回のみ数十秒）");
   const w=await Tesseract.createWorker("eng",1,{logger:m=>{ if(m.status==="recognizing text") progress(`読み取り中… ${Math.round(m.progress*100)}%`) }});
-  await w.setParameters({tessedit_char_whitelist:"0123456789.%FLNo",tessedit_pageseg_mode:"11"});
+  await w.setParameters({tessedit_char_whitelist:"0123456789.%FLNom/sc",tessedit_pageseg_mode:"11"});
   ocrWorker=w; return w;
 }
 async function readShot(fileObj,progress){
@@ -653,10 +784,10 @@ async function readShot(fileObj,progress){
 }
 function applyOcr(res){
   const boats=res&&Array.isArray(res.boats)?res.boats:[]; let n=0; const changed=[];
-  const ok={win:v=>v>=0&&v<=10,st:v=>v>0&&v<.5,mot:v=>v>=0&&v<=100,ten:v=>v>=6&&v<=7.6};
+  const ok={win:v=>v>=0&&v<=10,st:v=>v>0&&v<.5,mot:v=>v>=0&&v<=100,ten:v=>v>=6&&v<=7.6,est:v=>v>=-.2&&v<=.5};
   boats.forEach(b=>{
     const i=(+b.waku)-1; if(!(i>=0&&i<6)) return;
-    for(const k of ["win","st","mot","ten"]){const v=parseFloat(b[k]); if(Number.isFinite(v)&&ok[k](v)){data[i][k]=v;n++;changed.push(i+"-"+k)}}
+    for(const k of ["win","st","mot","ten","est"]){const v=parseFloat(b[k]); if(Number.isFinite(v)&&ok[k](v)){data[i][k]=v;n++;changed.push(i+"-"+k)}}
     const c=parseInt(b.course,10); if(c>=1&&c<=6){data[i].c=c;n++;changed.push(i+"-c")}
     const f=parseInt(b.f,10); if(f>=0&&f<=3) data[i].f=f;
   });
