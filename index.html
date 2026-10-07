@@ -81,7 +81,7 @@ ol.combos li{display:flex;justify-content:space-between;align-items:center;paddi
 .badge{color:#fff;font-weight:700;border-radius:8px;padding:4px 10px;font-size:14px}
 .sum-sub{font-size:13px;color:var(--mute);display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px}
 .bar .v2{width:62px;font-size:12px;color:var(--mute);text-align:right}
-ol.combos li{display:grid;grid-template-columns:auto 1fr 76px 88px;gap:8px;align-items:center}
+ol.combos li{display:grid;grid-template-columns:22px auto 1fr 70px 84px;gap:8px;align-items:center}
 ol.combos li.good{background:linear-gradient(90deg,#ffb02026,transparent);border-radius:8px}
 .pr{text-align:right;font-variant-numeric:tabular-nums}.pr small{display:block;color:var(--mute);font-size:11px}
 .oddsIn{width:100%;font:inherit;font-size:15px;padding:6px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);text-align:center}
@@ -114,6 +114,13 @@ td input.filled,td select.filled{border-color:var(--accent);background:#ffb0201f
 .envrow input,.envrow select{font:inherit;font-size:16px;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);width:96px;text-align:center}
 .stline{display:flex;flex-wrap:wrap;gap:6px}.stline span{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:5px 8px;font-size:14px}
 .stline small{color:var(--mute);font-size:11px}
+.fitinfo{font-size:13px;line-height:1.7;color:var(--text)}.fitinfo table{min-width:0;font-size:12px}.fitinfo td,.fitinfo th{padding:3px 6px}
+.rankrow{display:flex;align-items:center;gap:10px;margin:0 0 8px;font-weight:700}
+.rankbadge{font-family:"Dela Gothic One",sans-serif;color:#fff;font-size:22px;width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.synth,.mine{margin-top:8px;font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.synth b,.mine b{font-size:15px;color:var(--accent)}
+li.kill{opacity:.55}.killtag{color:#e53935}
+.pick input{width:18px;height:18px}
 .toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#000d;color:#fff;
   padding:10px 14px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90vw}
 .toast.show{opacity:1}
@@ -148,26 +155,29 @@ td input.filled,td select.filled{border-color:var(--accent);background:#ffb0201f
       <thead><tr><th>枠</th><th>進入</th><th>全国勝率</th><th>平均ST</th><th>モーター<br>2連率%</th><th>展示<br>タイム</th><th>展示<br>ST</th></tr></thead>
       <tbody id="rows"></tbody></table></div>
     <div class="envrow">
+      <label>場<select id="envVenue"></select></label>
+      <label>風向き<select id="envDir"></select></label>
       <label>風速(m)<input id="envWind" inputmode="decimal"></label>
-      <label>風向き<select id="envDir"><option value="tail">追い風</option><option value="head">向かい風</option><option value="cross">横風</option></select></label>
       <label>波高(cm)<input id="envWave" inputmode="decimal"></label>
     </div>
-    <p class="note">展示STはフライングなら「F.02」のように入力します。風速と波高はスクショから自動で入りますが、<b>風向きは場によって追い風・向かい風の向きが違うため、ここで選んでください</b>。入力すると自動で3万回シミュレーションし直します。</p>
+    <p class="note">展示STはフライングなら「F.02」のように入力します。風速と波高はスクショから自動で入ります。<b>場と風向きはここで選んでください</b>（同じ風向きでも、場によって追い風・向かい風が違うため、場ごとの過去データから効き方を決めています）。</p>
   </div>
 
   <div class="card"><h2>予想</h2><div id="summary"></div><h3>頭（1着率）</h3><div id="winBars"></div><h3>ヒモ（2・3着に来る率）</h3><div id="himoBars"></div></div>
 
   <div class="card">
     <h2>3連単と期待値</h2>
-    <p class="note" style="margin-top:0">「適正」は確率どおりなら釣り合う倍率です。実際のオッズを入れると期待値（確率×オッズ）を出し、基準を超えたものを買い目候補にします。</p>
+    <div class="rankrow" id="rank"></div>
+    <p class="note" style="margin-top:0">期待値はモデルとオッズを混ぜた確率×オッズです（過去の検証でモデル単独より成績が良かったため）。「消し」はモデルが市場よりかなり低く見ている組で、過去データでは回収率が特に低かった組です。万舟まで狙うときは、オッズ一覧を下までスクショして読み込ませてください。</p>
     <ol class="combos" id="combos"></ol>
     <h2 style="margin-top:12px">買い目候補</h2><div class="buys" id="buys"></div>
+    <div class="mine" id="mine"></div>
   </div>
 
   <div class="card">
     <h2>予想の根拠</h2>
     <div class="tablewrap" id="why"></div>
-    <p class="note">1着は「頭の点数」で決め、残りの5艇から2・3着を「ヒモの点数」で決めています。ヒモはコースの差を小さくし、勝率・モーター・展示の地力を重視したうえで、1着艇の決まり手による展開（まくりならその外が続く、差しなら1号艇が残る、など）を加えています。スタートは想定STを基準に毎回ブレさせ、何万回もレースを回しています。</p>
+    <p class="note">頭（1着）とヒモ（2・3着）は別々の点数で決め、効き具合は過去約10万レースから推定しています。ヒモのコース欄には「1着艇のコース×自分のコース」の展開の傾向が入っています。最後にコースの並びごとの出やすさ（出目）で補正しています。</p>
   </div>
 
   <div class="card">
@@ -182,17 +192,9 @@ td input.filled,td select.filled{border-color:var(--accent);background:#ffb0201f
   </div>
 
   <details class="card">
-    <summary>場の傾向・効き具合の設定</summary>
-    <h2 style="margin-top:12px">コース別1着率（%）</h2>
-    <p class="note" style="margin-top:0">初期値は全国平均の目安です。走る場の数字に合わせると、その場らしい結果になります。</p>
-    <div class="cfg" id="venue"></div>
-    <h2 style="margin-top:12px">コース別のヒモ率（%・1着以外のとき2・3着に来る率）</h2>
-    <div class="cfg" id="himoPrior"></div>
-    <h2 style="margin-top:12px">頭の効き具合</h2>
-    <div class="cfg" id="weights"></div>
-    <h2 style="margin-top:12px">ヒモの効き具合</h2>
-    <div class="cfg" id="weightsH"></div>
-    <h2 style="margin-top:12px">その他</h2>
+    <summary>モデルの中身・設定</summary>
+    <div class="fitinfo" id="fitInfo"></div>
+    <h2 style="margin-top:12px">設定</h2>
     <div class="cfg" id="misc"></div>
     <div class="btns"><button id="btnCfgReset">初期値に戻す</button></div>
   </details>
@@ -204,22 +206,18 @@ const COLORS=[["#f4f4f4","#111"],["#1b1b1b","#fff"],["#e53935","#fff"],["#1e63d6
 const DEF_BOATS=[
   {c:1,win:6.80,st:.15,mot:38,ten:6.78},{c:2,win:5.20,st:.16,mot:33,ten:6.82},{c:3,win:6.10,st:.14,mot:41,ten:6.75},
   {c:4,win:7.20,st:.12,mot:45,ten:6.72},{c:5,win:4.80,st:.17,mot:30,ten:6.85},{c:6,win:5.50,st:.16,mot:35,ten:6.80}];
-const DEF_CFG={
-  venue:[55,14,12,11,6,2],          // コース別1着率（頭の土台）
-  himo:[42,48,45,42,34,23],          // 1着でなかったときの2・3着率（ヒモの土台）
-  w:{win:.45,mot:.015,ten:3.5,st:8}, // 頭の効き具合
-  wh:{win:.35,mot:.012,ten:2.5,st:2.5,dev:1}, // ヒモの効き具合（devは展開の効き）
-  stMix:.4,                          // 想定STにおける展示STの比重
-  margin:1.2};
-const DEF_ENV={wind:0,dir:"cross",wave:0};
+const PARAMS={"P": [1.7297, 0.1875, 0.1695, -0.029, -0.5119, -1.5458], "V": [[-0.1951, -0.2076, -0.0498, 0.1732, 0.2176, 0.0617], [-0.4204, 0.0289, 0.0863, 0.1434, 0.0107, 0.1511], [-0.1445, 0.1094, -0.0619, 0.0726, 0.0431, -0.0186], [-0.3425, 0.044, 0.0921, 0.0377, 0.0345, 0.1342], [-0.0516, 0.0078, -0.0112, -0.0283, 0.001, 0.0823], [0.0771, -0.0543, 0.0873, -0.0601, 0.0165, -0.0666], [0.038, -0.097, -0.0801, 0.0974, -0.0424, 0.0841], [0.1712, -0.0336, -0.1568, 0.0316, -0.037, 0.0247], [0.0841, 0.0194, -0.093, -0.0609, 0.0124, 0.038], [-0.0453, 0.1086, 0.1045, -0.0246, -0.0404, -0.1029], [-0.0456, -0.0039, 0.0813, -0.0555, 0.0828, -0.059], [0.0692, 0.0487, -0.0372, 0.0133, -0.0573, -0.0366], [0.1086, -0.0116, -0.0404, -0.0151, -0.0255, -0.016], [-0.2393, -0.0156, 0.0957, 0.0386, 0.1241, -0.0036], [0.0132, 0.0002, -0.0268, -0.0986, 0.0537, 0.0583], [0.0667, -0.0925, 0.003, 0.0072, -0.0346, 0.0502], [0.0885, -0.066, -0.0004, -0.0291, 0.0482, -0.0412], [0.1556, 0.1314, 0.0018, -0.0314, -0.1194, -0.1381], [0.1972, -0.0315, -0.0511, -0.0376, -0.1128, 0.0358], [0.1117, -0.0588, -0.0397, -0.0442, -0.018, 0.049], [-0.0265, -0.1593, -0.1121, 0.0726, 0.1381, 0.0871], [0.1141, 0.2044, 0.2406, -0.0889, -0.2612, -0.209], [0.0727, 0.0619, -0.0272, -0.0506, -0.0417, -0.0152], [0.1043, 0.061, -0.0094, -0.0633, 0.018, -0.1107]], "W": [-0.0401, -0.0001, 0.0057, 0.0149, 0.0056, 0.0139], "H": [-0.0154, 0.0078, 0.0081, 0.0013, -0.005, 0.0031], "VD": [[0.0907, -0.0455, 0.0198, -0.076, -0.0497, 0.0, 0.0171, 0.0074], [-0.016, -0.0157, -0.0395, -0.0179, -0.0358, 0.0603, 0.0022, 0.0021], [0.0682, 0.0373, -0.0071, -0.0327, 0.0128, 0.05, 0.0275, 0.0195], [0.0044, -0.0046, -0.0092, -0.0121, 0.0453, -0.1342, -0.0207, 0.0126], [0.0695, 0.0347, -0.0312, 0.074, 0.0394, 0.0317, 0.0477, 0.071], [-0.0327, 0.0086, -0.015, 0.0842, -0.0681, -0.0774, -0.0609, 0.0051], [-0.0503, 0.1139, -0.0377, 0.0041, -0.0411, -0.0328, -0.0488, -0.0084], [-0.0889, 0.0702, -0.0839, -0.0007, 0.0114, -0.0066, -0.0583, -0.0512], [-0.0074, 0.0279, -0.0317, -0.0034, 0.0188, -0.0053, -0.0129, 0.0151], [0.049, 0.0466, 0.0941, -0.0273, -0.0106, 0.0063, 0.0681, 0.0355], [0.0223, 0.0097, -0.0456, 0.0462, -0.0574, 0.0069, -0.0513, -0.0114], [0.0465, 0.0291, 0.0, -0.0564, -0.0741, 0.0, 0.0, 0.0], [-0.0187, 0.04, 0.0125, -0.0534, 0.0404, 0.0336, 0.0118, 0.0602], [-0.0618, 0.0491, -0.0724, -0.0029, -0.0446, 0.0156, -0.057, -0.0088], [-0.0361, -0.0759, 0.0161, -0.0484, 0.0445, 0.0401, 0.0352, -0.0061], [-0.0316, -0.0287, 0.0, 0.0047, -0.0029, 0.0112, 0.0, -0.0175], [-0.0111, -0.0755, -0.0614, 0.0611, -0.0008, -0.0071, -0.0604, -0.0556], [-0.0746, -0.0245, -0.0001, 0.0014, 0.0734, 0.0967, 0.0697, -0.0213], [0.0252, -0.0228, -0.042, 0.0434, -0.105, -0.0202, -0.0075, 0.0082], [0.0002, -0.0089, -0.0496, 0.0162, -0.0011, -0.0127, -0.0279, -0.0511], [0.0986, 0.0859, -0.0315, -0.0046, 0.0058, -0.0471, 0.0008, 0.0211], [0.064, -0.0369, -0.0214, 0.0515, -0.0013, -0.0482, 0.0829, 0.0617], [-0.0349, -0.0268, -0.0076, -0.0107, 0.0155, 0.0546, 0.0569, -0.0152], [0.1092, 0.0264, -0.0045, 0.0721, 0.0145, -0.03, -0.0316, 0.0703]], "D": [[-0.0, 0.5151, 0.3978, 0.0822, -0.2569, -0.7382], [0.7646, -0.0, 0.1974, 0.024, -0.2967, -0.6893], [0.5494, 0.0366, 0.0, 0.111, -0.1277, -0.5692], [0.2722, -0.0588, -0.2222, -0.0, 0.2188, -0.21], [0.451, -0.0602, -0.1983, -0.0514, -0.0, -0.141], [0.3657, 0.1616, -0.118, -0.1541, -0.2552, 0.0]], "B": {"dwin": 0.5099, "dlwin": 0.0325, "dmot": 0.0103, "dten": 4.806, "adv": 5.3252, "fpos": 0.124}, "G": {"dwin": 0.4271, "dlwin": 0.0351, "dmot": 0.0081, "dten": 2.5032, "adv": 1.0369, "fpos": 0.0127}, "fh": ["dwin", "dmot", "dten", "adv", "fpos"], "fm": ["dwin", "dmot", "dten", "adv", "fpos"], "st_fill": 0.17, "f_add": 0.02, "info": "<p><b>過去データで推定した値を使っています。</b></p>\n<table class=\"why\"><tr><th>学習</th><td>2024年11月〜2026年8月 約10.2万レース（公式の番組表・競走成績）</td></tr>\n<tr><th>確認</th><td>2026年9月 4,594レース（学習に使っていない期間）</td></tr>\n<tr><th>本命の1着的中</th><td>58.4%（コースだけの予想 55.7%）</td></tr>\n<tr><th>上位10点の的中</th><td>52.7%（コースだけ 41.0%）</td></tr>\n<tr><th>オッズとの比較</th><td>モデル単独の精度はオッズにまだ及びません。期待値はモデルとオッズを混ぜた確率で計算しています。</td></tr></table>\n<p class=\"note\">展示STは公式データに無いため、展示STの効き具合（展示比重）は未検証です。</p>", "eta": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1046, 0.0914, 0.0865, 0.1642, 0.0, -0.1195, 0.0, 0.1431, 0.162, 0.1852, 0.0, -0.1776, -0.2159, 0.0, 0.1861, 0.3648, 0.0, -0.2525, -0.1795, -0.169, 0.0, 0.3202, 0.0, -0.4208, -0.4525, -0.2869, -0.2001, 0.0, 0.0, 0.0, 0.158, 0.1304, 0.119, 0.1096, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.3881, 0.0, 0.0, 0.2049, 0.2786, 0.3256, -0.3699, 0.0, -0.009, 0.0, 0.2441, 0.3109, -0.503, 0.0, -0.1119, -0.1007, 0.0, 0.3711, -0.5627, 0.0, -0.2824, -0.2484, -0.128, 0.0, 0.0, 0.032, 0.0, 0.1908, 0.2555, 0.2327, -0.3392, 0.0, 0.0, 0.1399, 0.2161, 0.2589, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.3595, -0.0784, 0.0, 0.0, 0.2034, 0.3275, -0.4168, -0.1085, 0.0, -0.1322, 0.0, 0.3032, -0.6436, -0.378, 0.0, -0.1997, -0.3593, 0.0, 0.0, 0.1182, 0.0601, 0.0, 0.1076, 0.1042, 0.022, 0.0, 0.1031, 0.0, -0.1092, 0.0918, -0.1684, -0.1687, 0.0, 0.0, 0.0615, 0.2517, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.093, -0.116, -0.0953, 0.0, 0.0, 0.4028, -0.3336, -0.2342, -0.4568, 0.0, -0.1868, 0.0, 0.0, 0.1272, 0.1455, 0.0492, 0.0, 0.2, -0.0931, 0.0, 0.0412, -0.181, 0.0, 0.0687, -0.2121, 0.0496, 0.0, -0.1386, 0.0, 0.0118, -0.1182, -0.0406, -0.096, 0.0, 0.0, 0.4743, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.2691, -0.1098, -0.3075, -0.2549, 0.0, 0.0, 0.0, 0.2549, 0.0689, 0.0567, -0.1444, 0.0, -0.0019, 0.0, 0.1703, -0.1545, -0.2421, 0.0, -0.1392, -0.1537, 0.0, -0.0141, -0.0334, 0.0, -0.1071, -0.1605, -0.1242, 0.0, 0.3903, 0.0, -0.0305, -0.2211, -0.0665, 0.0923, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "blend": {"a": 0.3, "b": 0.8}, "take": 1.337, "cut": {"odds": 20, "ev": 1.6}, "kill": 0.7, "rank": [0.3, 0.6, 1.2]};   // 過去レースから推定した値（頭・ヒモ・場・風・波）
+const VNAME=['桐生','戸田','江戸川','平和島','多摩川','浜名湖','蒲郡','常滑','津','三国','びわこ','住之江','尼崎','鳴門','丸亀','児島','宮島','徳山','下関','若松','芦屋','福岡','唐津','大村'];
+const DIR16=['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西'];
+const DEF_CFG={stMix:.4,margin:1.2};
+const DEF_ENV={venue:-1,wind:0,dir:-1,wave:0};
 const $=id=>document.getElementById(id);
 function load(k,d){try{const s=localStorage.getItem(k);if(s)return JSON.parse(s)}catch(e){}return JSON.parse(JSON.stringify(d))}
 function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
-let data=load("kyotei-sim-v1",DEF_BOATS), cfg=load("kyotei-sim-cfg",DEF_CFG), odds=load("kyotei-sim-odds",{}), log=load("kyotei-sim-log",[]), env=load("kyotei-sim-env",DEF_ENV);
+let picks=new Set();
+let data=load("kyotei-sim-v1",DEF_BOATS), cfg=load("kyotei-sim-cfg2",DEF_CFG), odds=load("kyotei-sim-odds",{}), log=load("kyotei-sim-log",[]), env=load("kyotei-sim-env2",DEF_ENV);
 if(!Array.isArray(data)||data.length!==6) data=JSON.parse(JSON.stringify(DEF_BOATS));
-{const c=JSON.parse(JSON.stringify(DEF_CFG));cfg=Object.assign(c,cfg);cfg.w=Object.assign({},DEF_CFG.w,cfg.w);cfg.wh=Object.assign({},DEF_CFG.wh,cfg.wh);
- if(!Array.isArray(cfg.himo)||cfg.himo.length!==6)cfg.himo=DEF_CFG.himo.slice();}
-env=Object.assign({},DEF_ENV,env);
+cfg=Object.assign({},DEF_CFG,cfg); env=Object.assign({},DEF_ENV,env);
 function chip(i){const [bg,fg]=COLORS[i];return `<span class="chip" style="background:${bg};color:${fg}">${i+1}</span>`}
 function combo(k){return `<span class="combo">${k.split("-").map(Number).map((x,j)=>chip(x)+(j<2?"<i>-</i>":"")).join("")}</span>`}
 function courses(){const cs=data.map(b=>b.c);return new Set(cs).size===6?cs:[1,2,3,4,5,6]}
@@ -227,130 +225,161 @@ const num=v=>typeof v==="number"&&Number.isFinite(v);
 
 /* ---------- 想定ST（平均ST×展示ST） ---------- */
 function predST(b){
-  let base=num(b.st)?b.st:.17;
-  if(b.f>=1) base+=.02;                            // F持ちはスタートを控えやすい
+  let base=(num(b.st)?b.st:PARAMS.st_fill)+(b.f>=1?PARAMS.f_add:0);
   if(!num(b.est)) return {st:base,from:"平均"};
-  let ex=b.est<0?.01:b.est;                        // 展示でのフライングは「踏み込めている」とみなし.01扱い
-  if(b.f>=1&&b.est<.05) ex=Math.max(ex,.05);       // F持ちの攻めた展示は本番では割り引く
+  let ex=b.est<0?.01:b.est;
+  if(b.f>=1&&b.est<.05) ex=Math.max(ex,.05);
   return {st:(1-cfg.stMix)*base+cfg.stMix*ex,from:"平均+展示"};
 }
-/* ---------- 風・波 ---------- */
-function windAdj(c){ // 頭へのコース別補正
-  const v=Math.max(0,env.wind||0), h=Math.max(0,env.wave||0);
-  let a=0;
-  if(env.dir==="head") a=[-.06,-.01,.035,.035,.02,0][c-1]*v;   // 向かい風：イン不利、まくり有利
-  else if(env.dir==="tail") a=[.035,.01,-.015,-.02,-.02,-.02][c-1]*v; // 追い風：イン有利
-  else a=[-.012,0,.004,.004,.002,0][c-1]*v;                    // 横風：わずかにイン不利
-  if(c===1&&h>5) a-=.01*(h-5);                                  // 波が高いとイン不利
-  return a;
+/* ---------- 特徴（6艇の平均との差）---------- */
+function feats(cs){
+  const dev=k=>{const xs=data.map(b=>b[k]);const ok=xs.filter(num);const m=ok.length?ok.reduce((a,b)=>a+b,0)/ok.length:0;return xs.map(x=>num(x)?x-m:0)};
+  const dwin=dev("win"), dmot=dev("mot"), dten=dev("ten").map(x=>-x);
+  const pst=data.map(b=>predST(b).st);
+  const adv=pst.map((s,i)=>{const inner=pst.filter((_,j)=>cs[j]<cs[i]);
+    if(inner.length) return inner.reduce((a,b)=>a+b,0)/inner.length-s;
+    const oth=pst.filter((_,j)=>j!==i);return .5*(oth.reduce((a,b)=>a+b,0)/oth.length-s)});
+  return {dwin,dlwin:[0,0,0,0,0,0],dmot,dten,adv,fpos:data.map(b=>b.f>=1?1:0),pst};
 }
-function roughness(){ // 風・波が強いほど展開が荒れる
-  const v=Math.max(0,env.wind||0), h=Math.max(0,env.wave||0);
-  return 1+.025*Math.max(0,v-3)+.015*Math.max(0,h-3);
+function vdAt(v,d16){ // 16方位 -> 推定値（8方位の間は平均）
+  if(v<0||d16<0) return 0; const row=PARAMS.VD[v];
+  return d16%2===0?row[d16/2]:(row[(d16-1)/2]+row[((d16+1)/2)%8])/2;
 }
+function headParts(cs,F){
+  const p=PARAMS, w=+env.wind||0, h=+env.wave||0, v=env.venue;
+  return data.map((_,i)=>{const c=cs[i]-1;
+    const course=p.P[c]+(v>=0?p.V[v][c]:0);
+    const wind=w*p.W[c]+h*p.H[c]+(c===0?vdAt(v,env.dir)*w:0);
+    const o={course,wind};
+    for(const k of p.fh) o[k]=p.B[k]*F[k][i];
+    return o});
+}
+function himoParts(cs,F,cw){
+  const p=PARAMS;
+  return data.map((_,i)=>{const o={course:p.D[cw-1][cs[i]-1]};for(const k of p.fm) o[k]=p.G[k]*F[k][i];return o});
+}
+const sum=o=>Object.values(o).reduce((a,b)=>a+b,0);
+function softmax(arr,mask){let m=-1e9;arr.forEach((x,i)=>{if(mask[i]&&x>m)m=x});const e=arr.map((x,i)=>mask[i]?Math.exp(x-m):0);const s=e.reduce((a,b)=>a+b,0);return e.map(x=>x/s)}
 
-/* ---------- モデル ---------- */
-function logShare(arr){const s=arr.reduce((a,b)=>a+Math.max(.1,b),0);return arr.map(v=>Math.log(Math.max(.1,v)/s))}
-function gumbel(){return -Math.log(-Math.log(Math.random()+1e-12)+1e-12)}
-function normal(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
-function means(){const m=k=>{const xs=data.map(b=>b[k]).filter(num);return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:0};return {win:m("win"),mot:m("mot"),ten:m("ten")}}
-function slitAdv(cs,st,i){
-  const inner=[];for(let j=0;j<6;j++) if(cs[j]<cs[i]) inner.push(st[j]);
-  const oth=st.filter((_,j)=>j!==i);
-  return inner.length?inner.reduce((a,x)=>a+x,0)/inner.length-st[i]:(oth.reduce((a,x)=>a+x,0)/oth.length-st[i])*.5;
-}
-function headParts(cs,st){ // 頭（1着）を決める点数
-  const PR=logShare(cfg.venue), M=means(), W=cfg.w;
-  return data.map((b,i)=>{const adv=slitAdv(cs,st,i);
-    return {course:PR[cs[i]-1]+windAdj(cs[i]),win:W.win*((b.win||0)-M.win),mot:W.mot*((b.mot||0)-M.mot),
-      ten:num(b.ten)?W.ten*(M.ten-b.ten):0,st:W.st*adv,adv}});
-}
-function himoParts(cs,st){ // ヒモ（2・3着）を決める点数：コース差は小さく、地力と足を重視
-  const PR=logShare(cfg.himo), M=means(), W=cfg.wh;
-  return data.map((b,i)=>({course:PR[cs[i]-1],win:W.win*((b.win||0)-M.win),mot:W.mot*((b.mot||0)-M.mot),
-      ten:num(b.ten)?W.ten*(M.ten-b.ten):0,st:W.st*slitAdv(cs,st,i)}));
-}
-function devBonus(cw,kima,c){ // 1着艇の決まり手による展開（ヒモへの影響）
-  let x=0;
-  if(kima==="逃げ"){ if(c===2||c===3) x=.15; }
-  else if(kima==="差し"){ if(c===1) x=.3; else if(c===cw+1) x=.1; }
-  else if(kima==="まくり"){ if(c<cw) x=-.4; else if(c===cw+1) x=.4; else if(c===cw+2) x=.2; }
-  else if(kima==="まくり差し"){ if(c===1) x=.15; else if(c<cw) x=-.2; else if(c===cw+1) x=.25; }
-  return x*cfg.wh.dev;
-}
-function simOne(cs){
-  const R=roughness();
-  const st=data.map(b=>Math.max(.01,predST(b).st+normal()*.03*R));
-  const H=headParts(cs,st);
-  const hs=H.map(p=>p.course+p.win+p.mot+p.ten+p.st+gumbel()*R);
-  const w=hs.indexOf(Math.max(...hs)), c=cs[w], a=H[w].adv; let kima;
-  if(c===1) kima="逃げ"; else if(c===2) kima=a>.05?"まくり":"差し";
-  else if(c<=4) kima=a>.04?"まくり":"まくり差し"; else kima=a>.06?"まくり":(Math.random()<.5?"まくり差し":"差し");
-  const Hm=himoParts(cs,st);
-  const rest=[0,1,2,3,4,5].filter(i=>i!==w);
-  const ms=rest.map(i=>[i,Hm[i].course+Hm[i].win+Hm[i].mot+Hm[i].ten+Hm[i].st+devBonus(c,kima,cs[i])+gumbel()*R]).sort((p,q)=>q[1]-p[1]);
-  return {order:[w,...ms.map(x=>x[0])],st,kima,cs};
-}
-
-/* ---------- 計算 ---------- */
+/* ---------- 確率（全120通りを直接計算） ---------- */
 let last=null;
 function calc(){
-  const cs=courses(), N=30000, z=()=>[0,0,0,0,0,0], win=z(), top2=z(), top3=z(), himo=z(), tri=new Map(), km={}, kmBoat={};
-  for(let k=0;k<N;k++){
-    const r=simOne(cs), o=r.order; win[o[0]]++; top2[o[0]]++; top2[o[1]]++; top3[o[0]]++; top3[o[1]]++; top3[o[2]]++; himo[o[1]]++; himo[o[2]]++;
-    const key=o.slice(0,3).join("-"); tri.set(key,(tri.get(key)||0)+1);
-    km[r.kima]=(km[r.kima]||0)+1; const kb=o[0]+"-"+r.kima; kmBoat[kb]=(kmBoat[kb]||0)+1;
-  }
-  last={N,win,top2,top3,himo,tri,km,kmBoat,cs,sorted:[...tri.entries()].sort((a,b)=>b[1]-a[1])};
+  const cs=courses(), F=feats(cs);
+  const H=headParts(cs,F).map(sum), ph=softmax(H,[1,1,1,1,1,1]);
+  const raw=new Map(); let Z=0;
+  for(let i=0;i<6;i++){
+    const q=himoParts(cs,F,cs[i]).map(sum);
+    const m2=[0,1,2,3,4,5].map(x=>x!==i), p2=softmax(q,m2);
+    for(let j=0;j<6;j++){ if(j===i) continue;
+      const m3=m2.map((x,k)=>x&&k!==j), p3=softmax(q,m3);
+      for(let k=0;k<6;k++){ if(!m3[k]) continue;
+        // ⑤ 出目補正（コースの並びごとの出やすさ）
+        const ci=(cs[i]-1)*36+(cs[j]-1)*6+(cs[k]-1);
+        const pr=ph[i]*p2[j]*p3[k]*Math.exp(PARAMS.eta[ci]); raw.set(i+"-"+j+"-"+k,pr); Z+=pr; } } }
+  const tri=new Map(), win=[0,0,0,0,0,0], top2=[0,0,0,0,0,0], top3=[0,0,0,0,0,0], himo=[0,0,0,0,0,0];
+  for(const [k,v] of raw){const p=v/Z; tri.set(k,p); const [i,j,l]=k.split("-").map(Number);
+    win[i]+=p; top2[i]+=p; top2[j]+=p; top3[i]+=p; top3[j]+=p; top3[l]+=p; himo[j]+=p; himo[l]+=p;}
+  // オッズがあるときは「モデル×オッズ」の混合確率で期待値を出す（モデル単独より実績が良かったため）
+  const B=PARAMS.blend, pb=new Map(); let Zb=0;
+  for(const [k,p] of tri){const o=parseFloat(odds[k]); const q=o>1?(1/o)/PARAMS.take:p;
+    const v=Math.pow(p,B.a)*Math.pow(q,B.b); pb.set(k,v); Zb+=v;}
+  for(const [k,v] of pb) pb.set(k,v/Zb);
+  last={N:1,win,top2,top3,himo,tri,pb,cs,F,ph,sorted:[...tri.entries()].sort((a,b)=>b[1]-a[1])};
   render();
 }
-let calcT; function recalc(){clearTimeout(calcT);calcT=setTimeout(calc,250)}
+let calcT; function recalc(){clearTimeout(calcT);calcT=setTimeout(calc,150)}
+/* アニメ用：確率どおりに1レースを抽選し、STと決まり手を付ける */
+function normal(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+function simOne(cs,target){
+  if(!last) calc();
+  let key=target;
+  if(!key){let r=Math.random();for(const [k,p] of last.sorted){r-=p;if(r<=0){key=k;break}} key=key||last.sorted[0][0]}
+  const order=key.split("-").map(Number); order.push(...[0,1,2,3,4,5].filter(x=>!order.includes(x)));
+  const pst=last.F.pst, w=order[0], c=cs[w];
+  let st;
+  for(let t=0;t<30;t++){ st=pst.map(s=>Math.max(.01,s+normal()*.03));
+    const inner=st.filter((_,j)=>cs[j]<c), a=inner.length?inner.reduce((x,y)=>x+y,0)/inner.length-st[w]:0;
+    if(c===1||a>-.02) break; }
+  const inner=st.filter((_,j)=>cs[j]<c), a=inner.length?inner.reduce((x,y)=>x+y,0)/inner.length-st[w]:0;
+  let kima; if(c===1) kima="逃げ"; else if(c===2) kima=a>.05?"まくり":"差し";
+  else if(c<=4) kima=a>.04?"まくり":"まくり差し"; else kima=a>.06?"まくり":"まくり差し";
+  return {order,st,kima,cs};
+}
 
 /* ---------- 表示 ---------- */
-function bars(arr,N,el,side){
-  const mx=Math.max(...arr,1);
-  $(el).innerHTML=arr.map((v,i)=>`<div class="bar">${chip(i)}<div class="track"><div class="fill${side?" alt":""}" style="width:${v/mx*100}%"></div></div><span class="v">${(v/N*100).toFixed(1)}%</span>${side?`<span class="v2">${side(i)}</span>`:""}</div>`).join("");
+function bars(arr,el,side){
+  const mx=Math.max(...arr,1e-9);
+  $(el).innerHTML=arr.map((v,i)=>`<div class="bar">${chip(i)}<div class="track"><div class="fill${side?" alt":""}" style="width:${v/mx*100}%"></div></div><span class="v">${(v*100).toFixed(1)}%</span>${side?`<span class="v2">${side(i)}</span>`:""}</div>`).join("");
 }
 function render(){
-  if(!last) return; const L=last, N=L.N;
-  const p=L.win.map(v=>v/N), fav=p.indexOf(Math.max(...p)), pv=p[fav]*100;
+  if(!last) return; const L=last;
+  const p=L.win, fav=p.indexOf(Math.max(...p)), pv=p[fav]*100;
   const lvl=pv>=60?["堅い","#2e9e4f"]:pv>=40?["本命有力","#1e63d6"]:pv>=28?["混戦","#e08a00"]:["荒れ模様","#e53935"];
   const hFav=L.himo.indexOf(Math.max(...L.himo.map((v,i)=>i===fav?-1:v)));
+  const dirTxt=env.dir>=0?DIR16[env.dir]:"風向き未選択";
   $("summary").innerHTML=`<div class="sum-main"><span class="badge" style="background:${lvl[1]}">${lvl[0]}</span>
     <span>頭 ${chip(fav)} 1着率 <b>${pv.toFixed(1)}%</b></span><span>ヒモ筆頭 ${chip(hFav)}</span></div>
-    <div class="sum-sub">最有力の3連単 ${combo(L.sorted[0][0])} <b>${(L.sorted[0][1]/N*100).toFixed(1)}%</b>
-    ／ 上位10通りで全体の <b>${(L.sorted.slice(0,10).reduce((s,x)=>s+x[1],0)/N*100).toFixed(0)}%</b> をカバー</div>
-    <div class="sum-sub">水面：${({head:"向かい風",tail:"追い風",cross:"横風"})[env.dir]} ${env.wind||0}m ／ 波 ${env.wave||0}cm${roughness()>1.05?"（荒れやすい条件）":""}</div>`;
-  bars(L.win,N,"winBars",i=>`3連対${(L.top3[i]/N*100).toFixed(0)}%`);
-  bars(L.himo,N,"himoBars",i=>`2着${((L.top2[i]-L.win[i])/N*100).toFixed(0)}%`);
-  // 3連単＋期待値
+    <div class="sum-sub">最有力の3連単 ${combo(L.sorted[0][0])} <b>${(L.sorted[0][1]*100).toFixed(1)}%</b>
+    ／ 上位10通りで全体の <b>${(L.sorted.slice(0,10).reduce((s,x)=>s+x[1],0)*100).toFixed(0)}%</b> をカバー</div>
+    <div class="sum-sub">${env.venue>=0?VNAME[env.venue]:"場未選択"}　${dirTxt} ${env.wind||0}m ／ 波 ${env.wave||0}cm${windNote()}</div>`;
+  bars(L.win,"winBars",i=>`3連対${(L.top3[i]*100).toFixed(0)}%`);
+  bars(L.himo,"himoBars",i=>`2着${((L.top2[i]-L.win[i])*100).toFixed(0)}%`);
   const top=L.sorted.slice(0,12);
-  $("combos").innerHTML=top.map(([k,v])=>{const pr=v/N, o=parseFloat(odds[k]), ev=o?pr*o:null, good=ev&&ev>=cfg.margin;
-    return `<li class="${good?"good":""}">${combo(k)}<span class="pr">${(pr*100).toFixed(1)}%<small>適正 ${(1/pr).toFixed(1)}倍</small></span>
+  $("combos").innerHTML=top.map(([k,pr])=>{const o=parseFloat(odds[k]), ev=evOf(k), good=ev&&ev>=cfg.margin, kill=o>1&&killed(k);
+    return `<li class="${good?"good":""}${kill?" kill":""}"><label class="pick"><input type="checkbox" data-pick="${k}" ${picks.has(k)?"checked":""}></label>${combo(k)}<span class="pr">${(pr*100).toFixed(1)}%<small>適正 ${(1/pr).toFixed(1)}倍</small></span>
       <input class="oddsIn" data-k="${k}" inputmode="decimal" placeholder="オッズ" value="${odds[k]||""}">
-      <span class="ev">${ev?`期待値 <b>${ev.toFixed(2)}</b>`:"—"}</span></li>`}).join("");
+      <span class="ev">${kill?`<b class="killtag">消し</b>`:ev?`期待値 <b>${ev.toFixed(2)}</b>`:"—"}</span></li>`}).join("");
+  $("combos").querySelectorAll("[data-pick]").forEach(el=>el.onchange=()=>{el.checked?picks.add(el.dataset.pick):picks.delete(el.dataset.pick);render()});
   $("combos").querySelectorAll(".oddsIn").forEach(el=>el.addEventListener("change",()=>{
     const v=parseFloat(el.value); if(Number.isFinite(v)&&v>1) odds[el.dataset.k]=v; else delete odds[el.dataset.k];
     store("kyotei-sim-odds",odds); render();}));
-  const buys=buyList();
-  $("buys").innerHTML=buys.length?buys.map(b=>`<span class="buy">${combo(b.k)} 期待値${b.ev.toFixed(2)}</span>`).join(""):
-    `<span class="empty">オッズが入ると、期待値が基準（${cfg.margin.toFixed(2)}）以上の買い目がここに出ます</span>`;
-  // 根拠（頭とヒモを別々に）
-  const cs=L.cs, ps=data.map(b=>predST(b)), st=ps.map(x=>x.st);
-  const table=(P,keys,lab)=>{const base=Math.max(...P.map(q=>q.course));
-    return `<h3>${lab}</h3><table class="why"><thead><tr><th></th>${keys.map(k=>`<th>${k[1]}</th>`).join("")}<th>合計</th></tr></thead><tbody>`+
-    P.map((q,i)=>{const vals=keys.map(([k])=>k==="course"?q.course-base:q[k]);const tot=vals.reduce((a,b)=>a+b,0);
+  const buys=buyList(), hasOdds=Object.keys(odds).length>0;
+  const [rk,rc,rt]=rankOf(buys), S=synth(buys);
+  $("rank").innerHTML=hasOdds?`<span class="rankbadge" style="background:${rc}">${rk}</span><span>${rt}</span>`:`<span class="empty">オッズを入れるとランクが出ます</span>`;
+  $("buys").innerHTML=buys.length?buys.map(b=>`<span class="buy">${combo(b.k)} ${b.o}倍 期待値${b.ev.toFixed(2)}</span>`).join("")+
+    `<div class="synth">合成オッズ <b>${S.odds.toFixed(1)}倍</b>（${S.n}点）／ 的中率 ${(S.p*100).toFixed(1)}% ／ 期待値 ${S.ev.toFixed(2)}</div>`:
+    `<span class="empty">${hasOdds?"期待値が基準に届く買い目はありません（見送り推奨）":`オッズが入ると、期待値が基準（${cfg.margin.toFixed(2)}）以上の買い目がここに出ます`}</span>`;
+  const mine=[...picks].filter(k=>parseFloat(odds[k])>1&&last.tri.has(k)).map(k=>({k,o:parseFloat(odds[k]),p:last.pb.get(k)})), M2=synth(mine);
+  $("mine").innerHTML=M2?`自分で選んだ ${M2.n}点：合成オッズ <b>${M2.odds.toFixed(1)}倍</b> ／ 的中率 ${(M2.p*100).toFixed(1)}% ／ 期待値 <b>${M2.ev.toFixed(2)}</b>`:
+    `<span class="empty">左のチェックで買い目を選ぶと、合成オッズを計算します（オッズ入力済みの組のみ）</span>`;
+  // 根拠
+  const cs=L.cs, F=L.F;
+  const lab={course:"コース・場",wind:"風・波",dwin:"勝率",dmot:"モーター",dten:"展示",adv:"スタート",fpos:"F持ち"};
+  const table=(P,keys,title)=>{const base=Math.max(...P.map(q=>q.course));
+    return `<h3>${title}</h3><table class="why"><thead><tr><th></th>${keys.map(k=>`<th>${lab[k]}</th>`).join("")}<th>合計</th></tr></thead><tbody>`+
+    P.map((q,i)=>{const vals=keys.map(k=>k==="course"?q.course-base:(q[k]||0));const tot=vals.reduce((a,b)=>a+b,0);
       return `<tr><td>${chip(i)}<small>${cs[i]}コース</small></td>${vals.map(v=>`<td class="${v>.05?"pos":v<-.05?"neg":""}">${v>0?"+":""}${v.toFixed(2)}</td>`).join("")}<td class="tot">${tot>0?"+":""}${tot.toFixed(2)}</td></tr>`}).join("")+`</tbody></table>`};
-  const stRow=`<h3>想定ST（本番）</h3><div class="stline">${data.map((b,i)=>`<span>${chip(i)} <b>.${String(Math.round(st[i]*100)).padStart(2,"0")}</b><small>平均${num(b.st)?"."+String(Math.round(b.st*100)).padStart(2,"0"):"—"}${num(b.est)?` 展示${b.est<0?"F":""}.${String(Math.round(Math.abs(b.est)*100)).padStart(2,"0")}`:""}${b.f?` F${b.f}`:""}</small></span>`).join("")}</div>`;
+  const f2=n=>"."+String(Math.round(Math.abs(n)*100)).padStart(2,"0");
+  const stRow=`<h3>想定ST（本番）</h3><div class="stline">${data.map((b,i)=>`<span>${chip(i)} <b>${f2(F.pst[i])}</b><small>平均${num(b.st)?f2(b.st):"—"}${num(b.est)?` 展示${b.est<0?"F":""}${f2(b.est)}`:""}${b.f?` F${b.f}`:""}</small></span>`).join("")}</div>`;
   $("why").innerHTML=stRow+
-    table(headParts(cs,st),[["course","コース・風"],["win","勝率"],["mot","モーター"],["ten","展示"],["st","スタート"]],"頭（1着）の点数")+
-    table(himoParts(cs,st),[["course","コース"],["win","勝率"],["mot","モーター"],["ten","展示"],["st","スタート"]],"ヒモ（2・3着）の点数");
+    table(headParts(cs,F),["course","wind","dwin","dmot","dten","adv","fpos"],"頭（1着）の点数")+
+    table(himoParts(cs,F,cs[fav]),["course","dwin","dmot","dten","adv","fpos"],`ヒモ（2・3着）の点数　※${fav+1}号艇が1着のとき`);
   renderLog();
 }
+function windNote(){
+  if(env.venue<0||env.dir<0||!(env.wind>0)) return "";
+  const x=vdAt(env.venue,env.dir);
+  return x>.015?"（この場ではイン有利の風）":x<-.015?"（この場ではイン不利の風）":"";
+}
+function evOf(k){const o=parseFloat(odds[k]);return o>1&&last?last.pb.get(k)*o:null}
+function isHead1Cheap(k,o){const i=+k.split("-")[0];return last.cs[i]===1&&o<PARAMS.cut.odds}
 function buyList(){
   if(!last) return []; const out=[];
-  for(const k of Object.keys(odds)){const o=parseFloat(odds[k]), v=last.tri.get(k)||0; if(o&&v){const ev=v/last.N*o; if(ev>=cfg.margin) out.push({k,ev,o})}}
+  for(const k of Object.keys(odds)){const o=parseFloat(odds[k]), ev=evOf(k); if(!ev||!last.tri.has(k)) continue;
+    if(ev<cfg.margin) continue;
+    if(isHead1Cheap(k,o)&&ev<PARAMS.cut.ev) continue;          // ② 1号艇頭の安いオッズは強い根拠がない限り切る
+    out.push({k,ev,o,p:last.pb.get(k)})}
   return out.sort((a,b)=>b.ev-a.ev);
+}
+function killed(k){const o=parseFloat(odds[k]);if(!(o>1)) return false;const q=(1/o)/PARAMS.take;return last.tri.get(k)/q<PARAMS.kill}
+function synth(list){ // ④ 合成オッズ
+  if(!list.length) return null; const inv=list.reduce((s,x)=>s+1/x.o,0), p=list.reduce((s,x)=>s+x.p,0);
+  return {odds:1/inv,p,ev:p/inv,n:list.length};
+}
+function rankOf(buys){ // ③ おすすめランク
+  if(!buys.length) return ["D","#7a8794","買い目なし（見送り）"];
+  const sc=buys.reduce((s,b)=>s+(b.ev-1),0), R=PARAMS.rank;
+  return sc>=R[2]?["S","#e53935","妙味大"]:sc>=R[1]?["A","#e08a00","妙味あり"]:sc>=R[0]?["B","#1e63d6","やや妙味"]:["C","#2e9e4f","小さな妙味"];
 }
 
 /* ---------- 入力欄 ---------- */
@@ -371,26 +400,22 @@ function buildRows(){
     recalc();}));
 }
 function buildEnv(){
-  $("envWind").value=env.wind||0; $("envDir").value=env.dir; $("envWave").value=env.wave||0;
-  ["envWind","envDir","envWave"].forEach(id=>$(id).onchange=()=>{
-    env={wind:parseFloat($("envWind").value)||0,dir:$("envDir").value,wave:parseFloat($("envWave").value)||0};
-    store("kyotei-sim-env",env); recalc();});
+  $("envVenue").innerHTML=`<option value="-1">選択</option>`+VNAME.map((n,i)=>`<option value="${i}">${n}</option>`).join("");
+  $("envDir").innerHTML=`<option value="-1">無風・不明</option>`+DIR16.map((n,i)=>`<option value="${i}">${n}</option>`).join("");
+  $("envVenue").value=env.venue; $("envWind").value=env.wind||0; $("envDir").value=env.dir; $("envWave").value=env.wave||0;
+  ["envVenue","envWind","envDir","envWave"].forEach(id=>$(id).onchange=()=>{
+    env={venue:+$("envVenue").value,wind:parseFloat($("envWind").value)||0,dir:+$("envDir").value,wave:parseFloat($("envWave").value)||0};
+    store("kyotei-sim-env2",env); recalc();});
 }
 function buildCfg(){
-  $("venue").innerHTML=cfg.venue.map((v,i)=>`<label>${i+1}コース<input data-v="${i}" inputmode="decimal" value="${v}"></label>`).join("");
-  $("himoPrior").innerHTML=cfg.himo.map((v,i)=>`<label>${i+1}コース<input data-hp="${i}" inputmode="decimal" value="${v}"></label>`).join("");
-  const W=[["win","勝率 1.0差"],["mot","モーター 1%差"],["ten","展示 1.00秒差"],["st","ST 1.00秒差"]];
-  $("weights").innerHTML=W.map(([k,l])=>`<label>${l}<input data-w="${k}" inputmode="decimal" value="${cfg.w[k]}"></label>`).join("");
-  $("weightsH").innerHTML=W.map(([k,l])=>`<label>${l}<input data-wh="${k}" inputmode="decimal" value="${cfg.wh[k]}"></label>`).join("")+
-    `<label>展開の効き（倍）<input data-wh="dev" inputmode="decimal" value="${cfg.wh.dev}"></label>`;
   $("misc").innerHTML=`<label>想定STの展示比重（0〜1）<input data-x="stMix" inputmode="decimal" value="${cfg.stMix}"></label>
     <label>買いの基準（期待値）<input data-x="margin" inputmode="decimal" value="${cfg.margin}"></label>`;
-  document.querySelectorAll("#venue input,#himoPrior input,#weights input,#weightsH input,#misc input").forEach(el=>el.addEventListener("change",()=>{
-    const v=parseFloat(el.value); if(!Number.isFinite(v)) return; const d=el.dataset;
-    if(d.v) cfg.venue[+d.v]=v; else if(d.hp) cfg.himo[+d.hp]=v; else if(d.w) cfg.w[d.w]=v; else if(d.wh) cfg.wh[d.wh]=v;
-    else if(d.x==="stMix") cfg.stMix=Math.min(1,Math.max(0,v)); else cfg.margin=v;
-    store("kyotei-sim-cfg",cfg); recalc();}));
-  $("btnCfgReset").onclick=()=>{cfg=JSON.parse(JSON.stringify(DEF_CFG));store("kyotei-sim-cfg",cfg);buildCfg();recalc()};
+  document.querySelectorAll("#misc input").forEach(el=>el.addEventListener("change",()=>{
+    const v=parseFloat(el.value); if(!Number.isFinite(v)) return;
+    if(el.dataset.x==="stMix") cfg.stMix=Math.min(1,Math.max(0,v)); else cfg.margin=v;
+    store("kyotei-sim-cfg2",cfg); recalc();}));
+  $("btnCfgReset").onclick=()=>{cfg=JSON.parse(JSON.stringify(DEF_CFG));store("kyotei-sim-cfg2",cfg);buildCfg();recalc()};
+  $("fitInfo").innerHTML=PARAMS.info;
 }
 function note(t){const n=$("toast");n.textContent=t;n.classList.add("show");clearTimeout(note.t);note.t=setTimeout(()=>n.classList.remove("show"),2200)}
 
@@ -509,8 +534,7 @@ function flash(t,ms=1600){const b=$("banner");b.textContent=t;b.classList.add("s
 
 function startRace(target){
   audioStop();
-  const cs=courses(); let r=simOne(cs);
-  if(target){for(let k=0;k<4000&&r.order.slice(0,3).join("-")!==target;k++) r=simOne(cs);}
+  const cs=courses(); const r=simOne(cs,target);
   const rank=[];r.order.forEach((b,k)=>rank[b]=k);
   const tS=r.st.map(s=>T0+s*KST), tMark=Math.min(...tS)+L1/V;
   anim={r,cs,rank,tS,tMark,w:r.order[0],first:cs.indexOf(1),tau:0,last:performance.now(),
@@ -579,7 +603,7 @@ function frame(now){
   if(A.fin.length>=6||(A.fin.length&&t>A.tMark+12)){
     const key=A.r.order.slice(0,3).join("-"), pc=last&&last.tri.get(key), pk=last&&last.km[A.r.kima];
     $("resultLine").innerHTML="着順："+A.r.order.map(b=>chip(b)).join(" ")+`　決まり手：${A.r.kima}`+
-      (last?`<br><small>この3連単になる確率 ${pc?(pc/last.N*100).toFixed(1):"0.1未満"}%／${A.w+1}号艇の${A.r.kima}になる確率 ${(((last.kmBoat[A.w+"-"+A.r.kima]||0)/last.N)*100).toFixed(1)}%</small>`:"");
+      (last?`<br><small>この3連単になる確率 ${pc?(pc/last.N*100).toFixed(1):"0.1未満"}%</small>`:"");
     audioStop(); setTimeout(()=>{if(anim===A)anim=null},1200);
   }
   if(anim===A) requestAnimationFrame(frame);
@@ -746,7 +770,7 @@ function parseStart(words,W,H,px){
         if(o){ kinds.push("オッズ"); Object.assign(newOdds,o); }
       }
       let got=envGot;
-      if(envGot){ store("kyotei-sim-env",env); buildEnv(); }
+      if(envGot){ store("kyotei-sim-env2",env); buildEnv(); }
       if(kinds.some(k=>k!=="オッズ")) got+=applyOcr({boats:merged});
       const nOdds=Object.keys(newOdds).length;
       if(nOdds){ Object.assign(odds,newOdds); store("kyotei-sim-odds",odds); render(); }
