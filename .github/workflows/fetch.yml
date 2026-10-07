@@ -1,0 +1,34 @@
+name: fetch-data
+on:
+  push:
+    paths: ['.github/workflows/fetch.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: download
+        run: |
+          mkdir -p data/K data/B
+          d=$(date -u -d "2024-10-01" +%s); end=$(date -u -d "2026-10-06" +%s)
+          while [ $d -le $end ]; do
+            ym=$(date -u -d @$d +%Y%m); ymd=$(date -u -d @$d +%y%m%d)
+            for t in K B; do
+              l=$(echo $t | tr A-Z a-z); f=data/$t/$l$ymd.lzh
+              [ -s $f ] || curl -sf -m 30 -o $f "http://www1.mbrace.or.jp/od2/$t/$ym/$l$ymd.lzh" || rm -f $f
+              sleep 0.5
+            done
+            d=$((d+86400))
+          done
+          echo "K: $(ls data/K | wc -l)  B: $(ls data/B | wc -l)"; du -sh data
+      - name: commit
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          git add data
+          git commit -m "add race data" || echo nothing
+          git push
