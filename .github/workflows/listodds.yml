@@ -1,0 +1,29 @@
+name: fetch-list-odds
+on:
+  push:
+    paths: ['.github/workflows/listodds.yml', 'odds_list.txt']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: listodds
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - name: fetch
+        run: |
+          set +e
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          mkdir -p odds
+          get() { o=odds/$1_$2_$(printf %02d $3).html.gz; [ -s $o ] && return
+            curl -s --compressed -m 30 -A "Mozilla/5.0" "https://www.boatrace.jp/owpc/pc/race/odds3t?rno=$3&jcd=$2&hd=$1" | gzip -n > $o
+            [ $(stat -c%s $o) -lt 2000 ] && rm -f $o; sleep 1; }
+          export -f get
+          for ym in $(cut -c1-6 odds_list.txt | sort -u); do
+            grep "^$ym" odds_list.txt | xargs -P 3 -n 3 bash -c 'get "$0" "$1" "$2"'
+            echo "$ym OK $(ls odds | wc -l)"
+            git add odds; git commit -qm "list odds $ym" && { git pull -q --rebase -X theirs || git rebase --abort; git push -q || echo "push NG"; }
+          done
