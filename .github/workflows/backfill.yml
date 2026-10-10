@@ -1,0 +1,34 @@
+name: fetch-backfill-odds
+on:
+  push:
+    paths: ['.github/workflows/backfill.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: backfill
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - name: fetch
+        run: |
+          set +e
+          sudo apt-get install -y -q lhasa >/dev/null
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          mkdir -p odds /tmp/k
+          get() { o=odds/$1_$2_$(printf %02d $3).html.gz; [ -s $o ] && return
+            curl -s --compressed -m 30 -A "Mozilla/5.0" "https://www.boatrace.jp/owpc/pc/race/odds3t?rno=$3&jcd=$2&hd=$1" | gzip -n > $o
+            [ $(stat -c%s $o) -lt 2000 ] && rm -f $o; sleep 1; }
+          export -f get
+          for ymd in $(seq -w 260501 260531) $(seq -w 260401 260430) $(seq -w 260301 260331) $(seq -w 260201 260228) $(seq -w 260101 260131) $(seq -w 251201 251231) $(seq -w 251101 251130) $(seq -w 251001 251031); do
+            f=data/K/k$ymd.lzh; [ -f $f ] || continue
+            rm -rf /tmp/k/*; lha xqw=/tmp/k $f >/dev/null 2>&1
+            for j in $(cat /tmp/k/* | grep -ao '^[0-9][0-9]KBGN' | cut -c1-2 | sort -u); do
+              for r in $(seq 1 12); do echo "20$ymd $j $r"; done
+            done | xargs -P 4 -n 3 bash -c 'get "$0" "$1" "$2"'
+            echo "20$ymd OK $(ls odds | wc -l)"
+            git add odds; git commit -qm "backfill 20$ymd" && { git pull -q --rebase -X theirs || git rebase --abort; git push -q || echo "push NG"; }
+          done
