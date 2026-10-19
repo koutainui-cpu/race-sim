@@ -1,0 +1,48 @@
+name: daily-collect
+on:
+  schedule:
+    - cron: '0 21 * * *'
+  push:
+    paths: ['.github/workflows/daily.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: daily
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - name: collect
+        run: |
+          set +e
+          sudo apt-get install -y -q lhasa >/dev/null
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          mkdir -p data/K data/B odds before probe /tmp/k
+          # 1) BOATCASTの調査用：トップページと読み込んでいるJSを保存（オリジナル展示の取得先を探すため）
+          curl -s -m 30 -A "Mozilla/5.0" https://race.boatcast.jp/ -o probe/index.html
+          for u in $(grep -oE '(src|href)="[^"]+\.(js|json)[^"]*"' probe/index.html | cut -d'"' -f2 | head -20); do
+            case $u in http*) url=$u;; //*) url=https:$u;; /*) url=https://race.boatcast.jp$u;; *) url=https://race.boatcast.jp/$u;; esac
+            curl -s -m 30 -A "Mozilla/5.0" "$url" -o "probe/$(echo $u | tr '/?&=' '____' | cut -c1-120)"
+          done
+          # 2) 前日と前々日の公式データ・オッズ・直前情報
+          get() { o=$1/$2_$3_$(printf %02d $4).html.gz; [ -s $o ] && return
+            curl -s --compressed -m 30 -A "Mozilla/5.0" "https://www.boatrace.jp/owpc/pc/race/$5?rno=$4&jcd=$3&hd=$2" | gzip -n > $o
+            [ $(stat -c%s $o) -lt 2000 ] && rm -f $o; sleep 1; }
+          export -f get
+          for back in 2 1; do
+            ymd=$(TZ=Asia/Tokyo date -d "-$back day" +%y%m%d); ym=20${ymd:0:4}
+            for t in K B; do l=$(echo $t | tr A-Z a-z); f=data/$t/$l$ymd.lzh
+              [ -s $f ] || curl -sf -m 30 -o $f "https://www1.mbrace.or.jp/od2/$t/$ym/$l$ymd.lzh" || rm -f $f; done
+            f=data/B/b$ymd.lzh; [ -f $f ] || continue
+            rm -rf /tmp/k/*; lha xqw=/tmp/k $f >/dev/null 2>&1
+            for j in $(cat /tmp/k/* | grep -ao '^[0-9][0-9]BBGN' | cut -c1-2 | sort -u); do
+              for r in $(seq 1 12); do
+                echo "odds 20$ymd $j $r odds3t"; echo "before 20$ymd $j $r beforeinfo"
+              done
+            done | xargs -P 3 -n 5 bash -c 'get "$0" "$1" "$2" "$3" "$4"'
+            echo "20$ymd OK odds $(ls odds | wc -l) before $(ls before | wc -l)"
+          done
+          git add data odds before probe; git commit -qm "daily $(TZ=Asia/Tokyo date +%Y%m%d)" && { git pull -q --rebase -X theirs || git rebase --abort; git push -q || echo "push NG"; }
